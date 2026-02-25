@@ -4,6 +4,8 @@ library(bsicons)
 
 source("Scripts/data_download_processing.R")
 source("Scripts/plots.R")
+source("Paginas/time_variation.R")
+source("Paginas/rose_pollution.R")
 
 # Tema profesional con tonos pasteles
 my_theme <- bs_theme(
@@ -38,100 +40,101 @@ ui <- page_fillable(
                        
                        div(class = "text-center mb-5",
                            h1("Sobre la aplicación", style = "color: #2E8B57;"),
-                           p("Esta plataforma utiliza datos oficiales de la RMCAB para generar análisis técnicos 
-              mediante modelos atmosféricos y herramientas estadísticas avanzadas.", 
-                             style = "font-size: 1.2rem; color: #666;")
+                           p("Esta plataforma integra datos en tiempo real de las estaciones 
+                             de monitoreo distribuidas estratégicamente por toda Bogotá y la 
+                             Sabana (RMCAB). Nuestra herramienta permite realizar una vigilancia 
+                             técnica de la calidad del aire mediante el procesamiento estadístico
+                             de contaminantes críticos y variables meteorológicas. A través 
+                             de modelos atmosféricos y herramientas analíticas avanzadas, 
+                             transformamos datos brutos en información clave para entender el
+                             comportamiento del aire en nuestra ciudad.", 
+                             style = "font-size: 1.2rem; color: #666; text-align: justify; font-weight: bold")
                        ),
-                       hr(),
+          
                        layout_column_wrap(
                          width = 1/2,
                          # TARJETA 1: ANÁLISIS
                          card(
-                           card_header("Análisis de Estaciones", class = "bg-primary"),
+                           fill = FALSE,
+                           card_header(strong("Variación Temporal", style = "text-align:center"), class = "bg-primary"),
                            card_body(
-                             p("Visualiza series de tiempo y tendencias de contaminantes por estación."),
+                             p("¿Cómo cambian los contaminantes en el tiempo?", style = "font-weight: bold; text_align:justify"),
                              actionButton("ir_analisis", "Ir a Análisis", class = "btn-outline-dark w-100", icon = bs_icon("graph-up"))
                            )
                          ),
                          # TARJETA 2: OTRA FUNCIÓN (Ejemplo)
                          card(
-                           card_header("Información Técnica", class = "bg-info text-white"),
+                           fill = FALSE,
+                           card_header(strong("Rosa de Contaminantes"), class = "bg-info text-white"),
                            card_body(
-                             p("Consulta la documentación sobre los sensores y métodos de medición."),
-                             actionButton("ir_info", "Ver Detalles", class = "btn-outline-light w-100", icon = bs_icon("info-circle"))
+                             p("¿De dónde viene la contaminación según el viento?",  style = "font-weight: bold; text_align:justify"),
+                             actionButton("ir_rosa", "Ver Rosa", class = "btn-outline-dark w-100", icon = bs_icon("compass"))
                            )
                          )
                        )
                      )
     ),
-    
-    # --- PÁGINA 2: ANÁLISIS DE ESTACIONES ---
-    nav_panel_hidden("pagina_analisis",
-                     layout_sidebar(
-                       sidebar = sidebar(
-                         title = "Parámetros de Consulta",
-                         bg = "#F1F8E9",
-                         dateRangeInput("dates", "Rango de fechas:", 
-                                        start = Sys.Date()-7, end = Sys.Date()),
-                         selectInput("station", "Estación:", 
-                                     choices = rmcab_aqs$aqs),
-                         selectInput("pollutant", "Contaminante:", 
-                                     choices = c("pm10", "pm25", "o3", "no2")),
-                         selectInput("plot_type","Tipo de Gráfico:",
-                                     choices = c("Variacion contaminante con el tiempo","Rosa de contaminantes")),
-                         #actionButton("update_plot", "Generar Gráfica", class = "btn-success w-100"),
-                         hr(),
-                         actionButton("volver_inicio", "Volver al Menú", icon = bs_icon("arrow-left"), class = "btn-link")
-                       ),
-                       
-                       card(
-                         card_header("Resultado"),
-                         card_body(
-                           # Aquí se mostrará la gráfica
-                           plotOutput("main_plot", height = "600px")
-                         )
-                       )
-                     )
+    ui_time_variation,
+    ui_rose_pollution
+  ),
+  tags$footer(
+    style = "background-color: #f8f9fa; padding: 20px; border-top: 1px solid #dee2e6; margin-top: auto;",
+    div(class = "container text-center",
+        p(strong("Desarrollado por:"), " Tu Nombre / Institución", style = "margin-bottom: 5px;"),
+        p("Datos oficiales de la Red de Monitoreo de Calidad del Aire de Bogotá (RMCAB).", style = "font-size: 0.9em; color: #666;"),
+        p("© 2026 - Herramienta de Análisis Atmosférico Avanzado", style = "font-size: 0.8em; color: #999; font-style: italic;")
     )
   )
 )
 server <- function (input, output, session){
 
   # NAVEGACIÓN
-  observeEvent(input$ir_analisis, { updateNavsetIndicator("paginas_app", "pagina_analisis") })
-  observeEvent(input$volver_inicio, { updateNavsetIndicator("paginas_app", "inicio") })
+  observeEvent(input$ir_analisis, { nav_select("paginas_app", "pagina_analisis") })
+  observeEvent(input$ir_rosa, { nav_select("paginas_app", "pagina_rosa") })
   
-  # TU LÓGICA INTEGRADA (Optimizada)
-  # Es mejor definir el reactivo fuera del renderPlot para mayor eficiencia
-  data_reactive <- reactive({
-    req(input$dates, input$station)
-    
-    # Llamada a tu función en data_dowload_processing.r
+  observeEvent(input$volver_inicio, { nav_select("paginas_app", "inicio") })
+  observeEvent(input$volver_rosa, { nav_select("paginas_app", "inicio") })
+  
+  #LOGICA: Variacion Temporal
+
+  data_time <- reactive({
+      req(input$dates, input$station)
+      
     get_data_clean(
-      aqs = input$station,
-      start_date = format(input$dates[1], "%d-%m-%Y"),
-      end_date   = format(input$dates[2], "%d-%m-%Y")
+        aqs = input$station,
+        start_date=format(input$dates[1], "%d-%m-%Y"),
+        end_date = format(input$dates[2],"%d-%m-%Y")
+      )
+    })
+  output$time_variation_plot <- renderPlot({
+    df <- data_time()
+    validate(
+      need(!is.null(df) && nrow(df) > 0, 
+           "No hay datos suficientes (viento o contaminantes) para esta estación en el rango seleccionado. 
+          Por favor, intenta con otra estación o cambia el rango de fechas.")
     )
+    plot_time_variation(data=df, pollutant = input$pollutant)
   })
   
-  output$main_plot <- renderPlot({
-    df <- data_reactive()
-    req(df) # Asegura que haya datos antes de graficar
-    
-    # Llamada a tus funciones en plots.r
-    if(input$plot_type == "Variacion contaminante con el tiempo"){
-      plot_time_variation(
-        data = df,
-        pollutant = input$pollutant
-      )
-    } else if (input$plot_type == "Rosa de contaminantes"){
-      plot_pollution_rose(
-        data = df,
-        pollutant = input$pollutant
-      )
-    }
+  #LOGICA: Rosa de contaminantes
+  data_rose<-reactive({
+    req(input$dates_rose, input$station_rose, input$pollutant_rose)
+    get_data_clean(
+      aqs = input$station_rose,
+      start_date = format(input$dates_rose[1], "%d-%m-%Y"),
+      end_date = format(input$dates_rose[2], "%d-%m-%Y")
+    )
+  })
+  output$plot_rose <- renderPlot({
+    df<-data_rose()
+    # Este mensaje reemplaza el error de R por un mensaje amigable
+    validate(
+      need(!is.null(df) && nrow(df) > 0, 
+           "No hay datos suficientes (viento o contaminantes) para esta estación en el rango seleccionado. 
+          Por favor, intenta con otra estación o cambia el rango de fechas.")
+    )
+    plot_pollution_rose(data = df,pollutant = input$pollutant_rose)
   })
   
 }
-
 shinyApp(ui, server)
