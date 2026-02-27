@@ -8,17 +8,20 @@ ui_time_variation <- nav_panel_hidden(
       bg = "#F1F8E9",
       dateRangeInput("dates", "Rango de fechas:", 
                      start = Sys.Date() - 7, end = Sys.Date()),
-      # Nota: rmcab_aqs debe estar cargado o disponible
       selectInput("station", "Estación:", 
-                  choices = rmcab_aqs$aqs),
+                  choices = NULL),
       selectInput("pollutant", "Contaminante:", 
-                  choices = c("pm10", "pm2.5", "o3", "no2")),
+                  choices = NULL),
+      hr(),
+      div(class="text-center mb-3",
+          uiOutput("control_rose_ui")),
+      
       hr(),
       actionButton("volver_inicio", "Volver al Menú", 
-                   icon = bs_icon("arrow-left"), class = "btn-link")
+                   icon = bs_icon("arrow-left"))
     ),
     card(
-      card_header("Resultado"),
+      card_header("Resultado del Análisis Temporal"),
       card_body(
         plotOutput("time_variation_plot", height = "600px")
       )
