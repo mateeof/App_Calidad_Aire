@@ -9,6 +9,7 @@ library(gganimate)
 library(magick)
 library(httr2)
 library(jsonlite)
+library(dplyr)
 
 
 
@@ -19,6 +20,7 @@ source("Paginas/time_variation.R")
 source("Paginas/rose_pollution.R")
 source("Paginas/cor_plot.R")
 source("Paginas/gif_maker.R")
+source("Paginas/Scatter_plot.R")
 
 
 # Dataset de Estaciones (Coordenadas aproximadas RMCAB)
@@ -170,6 +172,24 @@ ui <- page_fillable(
                              card_footer(
                                actionButton("ir_gif", "Generar Mapa Animado", class = "btn-outline-warning w-100")
                              )
+                           ),
+                           # Tarjeta 5:Correlacion entre dos contaminantes
+                           card(
+                             card_header("Correlacion Bivariada", class = "bg-success", style="font-size:1.2rem"),
+                             card_body(
+                               div(style = "min-height: 100px;",
+                                   p(strong("¿Cómo se relacionan dos contaminantes entre si?"), 
+                                     style = "font-size: 1rem; color: #368062; margin-bottom: 5px;text-align:center"),
+                                   p("Explora la dependencia estadistíca de dos contaminantes mediante diagramas de dispersión y coeficientes de correlación.", 
+                                     style = "font-size: 1rem; color: #666;")
+                               ),
+                               div(class = "text-center my-3",
+                                   tags$img(src = "CorrelacionBivariada.png", style = "width: 100%; max-height: 200px; object-fit: contain; border-radius: 5px;")
+                               )
+                             ),
+                             card_footer(
+                               actionButton("ir_scatter", "Ver correlación bivariada", class = "btn-outline-success w-100")
+                             )
                            )
                            
                          )
@@ -181,7 +201,8 @@ ui <- page_fillable(
     nav_panel_hidden("pagina_analisis", ui_time_variation),
     nav_panel_hidden("pagina_rosa", ui_rose_pollution),
     nav_panel_hidden("pagina_cor", ui_corplot),
-    nav_panel_hidden("pagina_gif", ui_gif_maker)
+    nav_panel_hidden("pagina_gif", ui_gif_maker),
+    nav_panel_hidden("pagina_scatter", ui_scatter)
   ),
   # --- FOOTER (AÑADIR AL FINAL DE TU UI) ---
   tags$footer(
@@ -221,12 +242,14 @@ server <- function (input, output, session){
   observeEvent(input$ir_rosa, { nav_select("paginas_app", "pagina_rosa") })
   observeEvent(input$ir_cor, { nav_select("paginas_app", "pagina_cor") })
   observeEvent(input$ir_gif, { nav_select("paginas_app", "pagina_gif") })
+  observeEvent(input$ir_scatter,{nav_select("paginas_app", "pagina_scatter")})
   
   # Lógica para botones de "Volver" 
   observeEvent(input$volver_inicio, { nav_select("paginas_app", "inicio") })
   observeEvent(input$volver_inicio2, { nav_select("paginas_app", "inicio") })
   observeEvent(input$volver_inicio3, { nav_select("paginas_app", "inicio") })
   observeEvent(input$volver_inicio4, { nav_select("paginas_app", "inicio") })
+  observeEvent(input$volver_inicio5, { nav_select("paginas_app", "inicio") })
   
   #INICIADORES
   observe({
@@ -235,12 +258,14 @@ server <- function (input, output, session){
     updateSelectInput(session, "station", choices = rmcab_aqs$aqs)
     updateSelectInput(session, "station_rose", choices = rmcab_aqs$aqs)
     updateSelectInput(session, "station_corplot", choices = rmcab_aqs$aqs)
+    updateSelectInput(session, "station_scatter", choices = rmcab_aqs$aqs)
     #CONTAMINANTES
     lista_contaminantes <- c("pm10", "pm2.5", "co", "no", "no2", "nox", "so2", "ozono")
     updateSelectInput(session, "pollutant", choices = lista_contaminantes)
     updateSelectInput(session, "pollutant_rose", choices = lista_contaminantes)
     updateSelectInput(session, "pollutant_gif", choices = lista_contaminantes)
-    
+    updateSelectInput(session, "Pollutant_x", choices = lista_contaminantes)
+    updateSelectInput(session, "Pollutant_y", choices = lista_contaminantes)
   })
   
   
@@ -671,6 +696,92 @@ output$plot_corplot <- renderPlot({
 #   list(src = path, contentType = "image/gif", width = "100%", height = "auto")
 # }, deleteFile = FALSE)
 
+## ------------------- LOGICA PAGINA: SCATTER -------------------
+datos_scatter <- reactiveVal(NULL)
+esta_cargando_scatter <- reactiveVal(FALSE)
+
+# ---- Botón dinámico ----
+output$control_scatter_ui <- renderUI({
+  if (esta_cargando_scatter()) {
+    div(
+      style = "padding:10px; background: #E8F5E9; border-radius: 8px; border: 1px solid #C8E6C9;",
+      p("Descargando datos de la RMCAB...",
+        style = "font-weight:bold; color: #2e7d32; margin-bottom: 5px"),
+      textOutput("mensaje_carga_scatter")
+    )
+  } else {
+    actionButton(
+      "generar_scatter",
+      "Generar Diagrama",
+      icon = icon("chart-line"),
+      style = "background-color: #2E8B57; color: white; border: none; width: 100%; font-weight:700; padding: 10px;"
+    )
+  }
+})
+# ---- Descarga al presionar botón ----
+observeEvent(input$generar_scatter, {
+  req(input$dates_scatter, input$station_scatter)
+  esta_cargando_scatter(TRUE)
+  withProgress(message = "Descargando datos de la RMCAB...", value = 0.3, {
+    output$mensaje_carga_scatter <- renderText({
+      paste("Procesando estación:", input$station_scatter)
+    })
+    df <- try({
+      get_data_clean(
+        aqs = input$station_scatter,
+        start_date = format(input$dates_scatter[1], "%d-%m-%Y"),
+        end_date   = format(input$dates_scatter[2], "%d-%m-%Y")
+      )
+    }, silent = TRUE)
+    if (inherits(df, "try-error")) {
+      datos_scatter("error_api")
+    } else {
+      datos_scatter(df)
+    }
+  })
+  esta_cargando_scatter(FALSE)
+})
+# ---- Renderizado del diagrama ----
+output$plot_scatter <- renderPlot({
+  df <- datos_scatter()
+  if (is.null(df)) return(NULL)
+  shiny::validate(
+    shiny::need(!inherits(df, "character"),
+                paste("La estación", input$station_scatter,
+                      "no reporta sensores activos en la RMCAB.")),
+    shiny::need(is.data.frame(df) && nrow(df) > 0,
+                "La RMCAB no devolvió datos para esta estación en estas fechas."),
+    shiny::need(input$Pollutant_x %in% names(df),
+                paste("La estación no mide", toupper(input$Pollutant_x))),
+    shiny::need(input$Pollutant_y %in% names(df),
+                paste("La estación no mide", toupper(input$Pollutant_y)))
+  )
+  tryCatch({
+    ggplot(
+      df,
+      aes_string(
+        x = input$Pollutant_x,
+        y = input$Pollutant_y
+      )
+    ) +
+      geom_point(alpha = 0.4, color = "#3B0084") +
+      #geom_smooth(method = "lm", se = FALSE, color = "black") + #Lianea de tendencia lineal
+      theme_minimal(base_size = 14) +
+      labs(
+        x = toupper(input$Pollutant_x),
+        y = toupper(input$Pollutant_y),
+        title = paste("Diagrama de Dispersión - Estación", input$station_scatter),
+        subtitle = "Relación estadística entre contaminantes seleccionados"
+      )
+  }, error = function(e){
+    shiny::validate(
+      "Error de graficación: Datos insuficientes o con demasiados valores NA."
+    )
+    
+  })
   
+})
 }
+
 shinyApp(ui, server)
+
