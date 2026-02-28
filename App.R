@@ -5,36 +5,26 @@ library(leaflet)
 library(ggplot2)
 library(shinycssloaders)
 library(bogotAIR)
+library(gganimate)
+library(magick)
+library(httr2)
+library(jsonlite)
+
 
 
 source("Scripts/data_download_processing.R")
 source("Scripts/plots.R")
+source("Scripts/analisis_ia.R")
 source("Paginas/time_variation.R")
 source("Paginas/rose_pollution.R")
 source("Paginas/cor_plot.R")
+source("Paginas/gif_maker.R")
+
 
 # Dataset de Estaciones (Coordenadas aproximadas RMCAB)
 # --- Dataset de Estaciones Completo (RMCAB) ---
-estaciones_bog <- data.frame(
-  nombre = c(
-    "Guaymaral", "Suba", "Fontibón", "Las Ferias", "Puente Aranda", 
-    "Kennedy", "Carvajal - Sevillana", "Tunal", "Usme", "Centro de Alto Rendimiento",
-    "MinAmbiente", "Jazmin", "Usaquen", "San Cristobal", "Movil 7ma", 
-    "Bolivia", "Ciudad Bolivar", "Colina", "Movil Fontibon"
-  ),
-  lat = c(
-    4.783, 4.761, 4.670, 4.690, 4.630, 
-    4.625, 4.595, 4.576, 4.530, 4.658,
-    4.625, 4.608, 4.710, 4.573, 4.628,
-    4.712, 4.560, 4.750, 4.675
-  ),
-  lng = c(
-    -74.043, -74.093, -74.141, -74.086, -74.117, 
-    -74.161, -74.148, -74.130, -74.120, -74.085,
-    -74.066, -74.125, -74.030, -74.083, -74.065,
-    -74.128, -74.150, -74.068, -74.145
-  )
-)
+estaciones_bog <- rmcab_aqs[,c("aqs","lat","lon")]
+names(estaciones_bog)<-c("nombre","lat","lng")
 
 # Tema profesional con tonos pasteles
 my_theme <- bs_theme(
@@ -91,7 +81,7 @@ ui <- page_fillable(
                              div(style = "background-color: #F8F9FA; padding: 15px; border-radius: 10px; border: 1px solid #eee;",
                                  p(strong("Nota técnica:"), " Los valores corresponden al promedio de la red monitoreada el día anterior.", 
                                    style = "font-size: 0.85rem; color: #555; text-align: center;")
-                             ),
+                             )
                            )
                          ),
                          
@@ -162,7 +152,26 @@ ui <- page_fillable(
                              card_footer(
                                actionButton("ir_cor", "Ver Matriz de Correlación", class = "btn-outline-dark w-100")
                              )
+                           ),
+                           # Tarjeta 4: Mapa Animado (GIF)
+                           card(
+                             card_header("Evolución Espacial", class = "bg-warning text-dark", style="font-size:1.2rem"),
+                             card_body(
+                               div(style = "min-height: 100px;",
+                                   p(strong("¿Cómo se desplaza la nube de contaminación sobre la ciudad durante el día?"), 
+                                     style = "font-size: 1rem; color: #856404; margin-bottom: 5px;text-align:center"),
+                                   p("Genera un mapa animado de 24 horas para visualizar la dinámica de dispersión horaria.", 
+                                     style = "font-size: 1rem; color: #666;")
+                               ),
+                               div(class = "text-center my-3",
+                                   tags$img(src = "map_gif_preview.png", style = "width: 100%; max-height: 200px; object-fit: contain; border-radius: 5px;")
+                               )
+                             ),
+                             card_footer(
+                               actionButton("ir_gif", "Generar Mapa Animado", class = "btn-outline-warning w-100")
+                             )
                            )
+                           
                          )
                      )
     ),
@@ -171,7 +180,8 @@ ui <- page_fillable(
     # Estos IDs deben coincidir con los que usas en nav_select en el server
     nav_panel_hidden("pagina_analisis", ui_time_variation),
     nav_panel_hidden("pagina_rosa", ui_rose_pollution),
-    nav_panel_hidden("pagina_cor", ui_corplot)
+    nav_panel_hidden("pagina_cor", ui_corplot),
+    nav_panel_hidden("pagina_gif", ui_gif_maker)
   ),
   # --- FOOTER (AÑADIR AL FINAL DE TU UI) ---
   tags$footer(
@@ -210,12 +220,13 @@ server <- function (input, output, session){
   observeEvent(input$ir_analisis, { nav_select("paginas_app", "pagina_analisis") })
   observeEvent(input$ir_rosa, { nav_select("paginas_app", "pagina_rosa") })
   observeEvent(input$ir_cor, { nav_select("paginas_app", "pagina_cor") })
+  observeEvent(input$ir_gif, { nav_select("paginas_app", "pagina_gif") })
   
   # Lógica para botones de "Volver" 
   observeEvent(input$volver_inicio, { nav_select("paginas_app", "inicio") })
   observeEvent(input$volver_inicio2, { nav_select("paginas_app", "inicio") })
   observeEvent(input$volver_inicio3, { nav_select("paginas_app", "inicio") })
-  
+  observeEvent(input$volver_inicio4, { nav_select("paginas_app", "inicio") })
   
   #INICIADORES
   observe({
@@ -225,9 +236,10 @@ server <- function (input, output, session){
     updateSelectInput(session, "station_rose", choices = rmcab_aqs$aqs)
     updateSelectInput(session, "station_corplot", choices = rmcab_aqs$aqs)
     #CONTAMINANTES
-    lista_contaminantes <- c("pm10", "pm25", "co", "no", "no2", "nox", "so2", "ozono")
+    lista_contaminantes <- c("pm10", "pm2.5", "co", "no", "no2", "nox", "so2", "ozono")
     updateSelectInput(session, "pollutant", choices = lista_contaminantes)
     updateSelectInput(session, "pollutant_rose", choices = lista_contaminantes)
+    updateSelectInput(session, "pollutant_gif", choices = lista_contaminantes)
     
   })
   
@@ -239,13 +251,13 @@ server <- function (input, output, session){
     #Icono estacion
     icono_estacion <- makeIcon(
       iconUrl = "broadcasting.png",
-      iconWidth = 35, iconHeight = 35,
+      iconWidth = 20, iconHeight = 20,
       iconAnchorX = 17, iconAnchorY = 35
     )
     
     leaflet(estaciones_bog) %>%
       addProviderTiles(providers$CartoDB.Positron) %>%
-      setView(lng = -74.10, lat = 4.65, zoom = 11) %>%
+      setView(lng = -74.10, lat = 4.65, zoom =10.5) %>%
       addMarkers(
         lng = ~lng, lat = ~lat,
         icon = icono_estacion,
@@ -306,6 +318,13 @@ server <- function (input, output, session){
 
 datos_time_historicos <- reactiveVal(NULL)
 esta_cargando_time <- reactiveVal(FALSE)
+
+#Variables IA
+v_res_tv_objeto <- reactiveVal(NULL) #Guarda el objeto de openar
+texto_analisis_ia <- reactiveVal("") #Guarda la respuesta
+esta_analizando_ia <- reactiveVal(FALSE) #Estado de carga de la ia
+
+
 #Control Dinamico Boton
 output$control_time_ui <- renderUI({
   if(esta_cargando_time()){
@@ -315,7 +334,7 @@ output$control_time_ui <- renderUI({
       textOutput("mensaje_carga_time")
     )
   }else{
-    actionButton("generar_time", "Generar Gráfica Temporal",
+    actionButton("generar_time", "Generar Gráfica",
     icon=icon("chart-line"),
     class="btn-primary",style="width: 100%;font-weight:700;")
   }
@@ -323,7 +342,14 @@ output$control_time_ui <- renderUI({
 #Logica descarga al presionar boton
 observeEvent(input$generar_time,{
   req(input$dates, input$station)
+  
+  texto_analisis_ia("")
+  v_res_tv_objeto(NULL)
+  
   esta_cargando_time(TRUE)
+  
+  #Limpiar analisis previo al generar nueva grafica
+  texto_analisis_ia("")
   
   withProgress(message = "Conectando con servidor RMCAB...", value=0,{
     #Ejecutamos descarga
@@ -351,24 +377,92 @@ output$time_variation_plot<-renderPlot({
   if(is.null(df)){
     return(NULL)
   }
-  validate(
-    need(is.data.frame(df), "Hubo un problema técnico al procesar los datos"),
-    need(nrow(df)>0,"La RMCAB no devolvió datos para esta estación en estas fechas."),
-    need(input$pollutant %in% names (df), paste("La estacion", input$station, "no mide", input$pollutant))
+  shiny::validate(
+    shiny::need(is.data.frame(df), "Hubo un problema técnico al procesar los datos"),
+    shiny::need(nrow(df)>0,"La RMCAB no devolvió datos para esta estación en estas fechas."),
+    shiny::need(input$pollutant %in% names (df), paste("La estacion", input$station, "no mide", input$pollutant))
   )
   #Intentat graficas
   tryCatch({
-    plot_time_variation(data = df,pollutant = input$pollutant)
+    res<-plot_time_variation(data = df,pollutant = input$pollutant)
+    v_res_tv_objeto(res)
+    return(res)
   }, error= function(e){
+    v_res_tv_objeto(NULL)
     validate("Error de graficación: No hay suficientes datos válidos para este contaminante")
   })
   
+})
+
+#LOGICA BOTON IA ANALISIS
+observeEvent(input$btn_analizar_tv, {
+  req(v_res_tv_objeto()) 
+  
+  texto_analisis_ia("Iniciando análisis... revisando conexión.")
+  
+  # 1. Extraer datos para asegurar que el objeto existe
+  res_obj <- v_res_tv_objeto()
+  datos_json <- jsonlite::toJSON(as.data.frame(res_obj$data$day.hour[, c("hour", "Mean")]))
+  
+  # 2. Intentar la conexión directa
+  tryCatch({
+    api_key <- "AIzaSyAHVqqIBu3jk7lBTneurg0X5FM02GpQC_c" 
+    url <- "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
+    
+    prompt <- paste(   "Actúa como un experto en calidad del aire de la Red de Monitoreo de Bogotá (RMCAB). ",
+                        "Analiza el comportamiento del contaminante ", input$pollutant, " en la estación ", input$station, 
+                        " basándote en estos resultados de la función timeVariation de openair:\n\n",
+                        "TAREA:\n",
+                        "1. Explica los picos horarios: ¿Coinciden con las horas pico de tráfico en Bogotá (6-9 AM / 5-8 PM)?\n",
+                        "2. Compara días laborales con el fin de semana.\n",
+                        "3. Si hay datos mensuales, menciona si la tendencia es estacional (ej. picos en febrero/marzo).\n",
+                        "4. Da recomendaciones breves según los niveles observados.\n\n",
+                        "IMPORTANTE: Escribe la respuesta en formato Markdown para que se vea bien en la app.", datos_json)
+    
+    cuerpo <- list(contents = list(list(parts = list(list(text = prompt)))))
+    
+    # Petición explícita con nombres de librería
+    req <- httr2::request(url) %>%
+      httr2::req_url_query(key = api_key) %>%
+      httr2::req_body_json(cuerpo) %>%
+      httr2::req_method("POST")
+    
+    resp <- httr2::req_perform(req)
+    resultado <- httr2::resp_body_json(resp)
+    
+    texto_final <- resultado$candidates[[1]]$content$parts[[1]]$text
+    texto_analisis_ia(texto_final)
+    
+  }, error = function(e) {
+    texto_analisis_ia(paste("ERROR TÉCNICO DETALLADO:", e$message))
+  })
+})
+
+
+output$analisis_ia_out<- renderUI({
+  if(texto_analisis_ia()==""){
+    p("Haz clic en 'Analizar Gráfica' para generar una interpretacion automática.",
+      style = "color: #888; font-style:italic; padding:10px")
+  }else{
+    div(
+      class="analisis-container",
+      style="background-color:#f8f9fa; border-left:4px solid #0d6efd; padding:15px; border-radius:px",
+      markdown(texto_analisis_ia())
+    )
+  }
 })
 
 #----LOGICA PAGINA: Rosa de Contaminantes----
 
 datos_rose <- reactiveVal(NULL)
 esta_cargando_rose <- reactiveVal(FALSE)
+
+#Variables IA
+v_res_rp_objeto <- reactiveVal(NULL) #Guarda el objeto de openar
+texto_analisis_ia_rp <- reactiveVal("") #Guarda la respuesta
+esta_analizando_ia_rp <- reactiveVal(FALSE) #Estado de carga de la ia
+
+
 #Control Dinamico Boton
 output$control_rose_ui <- renderUI({
   if(esta_cargando_rose()){
@@ -386,9 +480,16 @@ output$control_rose_ui <- renderUI({
 #Logica descarga al presionar boton
 observeEvent(input$generar_rose,{
   req(input$dates_rose, input$station_rose)
+  
+  texto_analisis_ia_rp("")
+  v_res_rp_objeto(NULL)
+  
   esta_cargando_rose(TRUE)
   
-  withProgress(message = "Obteniendo datos meteorologicos...", value=0.1,{
+  #Limpiar analisis previo al generar nueva grafica
+  texto_analisis_ia_rp("")
+  
+  withProgress(message = "Obteniendo datos meteorologicos...", value=0.5,{
     output$mensaje_carga_rose <- renderText({ 
       paste("Descargando:", input$station_rose) 
     })
@@ -417,25 +518,28 @@ output$plot_rose<-renderPlot({
   if(is.null(df)){
     return(NULL)
   }
-  validate(
-    need(!inherits(df, "character"), 
+  shiny::validate(
+    shiny::need(!inherits(df, "character"), 
          paste("La estación", input$station_rose, "no reporta sensores activos en la RMCAB.")),
-    need(is.data.frame(df), "Hubo un problema técnico al procesar los datos"),
-    need(nrow(df)>0,"La RMCAB no devolvió datos para esta estación en estas fechas."),
-    need(any(!is.na(df$ws)) && any(!is.na(df$wd)), 
+    shiny::need(is.data.frame(df), "Hubo un problema técnico al procesar los datos"),
+    shiny::need(nrow(df)>0,"La RMCAB no devolvió datos para esta estación en estas fechas."),
+    shiny::need(any(!is.na(df$ws)) && any(!is.na(df$wd)), 
          "Esta estación no cuenta con datos de viento (velocidad/dirección) para este periodo."),
-    need(input$pollutant_rose %in% names (df), paste("La estacion", input$station_rose, "no mide", toupper(input$pollutant_rose)))
+    shiny::need(input$pollutant_rose %in% names (df), paste("La estacion", input$station_rose, "no mide", toupper(input$pollutant_rose)))
   )
   #Intentat graficas
   tryCatch({
-    plot_pollution_rose(data = df,pollutant = input$pollutant_rose)
+    res<-plot_pollution_rose(data = df,pollutant = input$pollutant_rose)
+    v_res_rp_objeto(res)
+    return(res)
   }, error= function(e){
+    v_res_rp_objeto(NULL)
     validate("Error de graficación: No hay suficientes datos válidos para este contaminante")
   })
   
 })
 
-#----LOGICA PAGINA: Correlacion de Contaminantes----
+
 
 #----LOGICA PAGINA: Correlacion de Contaminantes----
 
@@ -518,6 +622,54 @@ output$plot_corplot <- renderPlot({
     validate("Error de graficación: Los datos actuales no permiten generar la matriz (posibles NAs masivos).")
   })
 })
+
+# PAGINA 4 - GIFT
+# datos_gif_path<- reactiveVal(NULL)
+# esta_cargando_gif <- reactiveVal(FALSE)
+# 
+# output$control_gif_ui <-renderUI({
+#   if(esta_cargando_gif()){
+#     div(style="padding:10px; background: #FFF9C4; border-radius:8px;",
+#     p("Renderizando frames...", style="font-weight:bold; color: #F57F17;"),
+#     textOutput("mensaje_carga_gif"))
+#   }else{
+#     actionButton("generar_gif", "Generar Gif Animado", icon = icon("film"),
+#     style="background-color:#FBC02D; color:black; font-weight:700; width:100%")
+#   }
+# })
+# 
+# observeEvent(input$generar_gif, {
+#   req(input$fecha_gif, input$pollutant_gif)
+#   esta_cargando_gif(TRUE)
+#   
+#   withProgress(message = "Preparando mapa animado...", value = 0, {
+#     
+#     # 1. Descargamos los datos usando tu lógica de resumen adaptada
+#     df_gif <- get_data_for_gif(
+#       fecha = input$fecha_gif, 
+#       contaminante_sel = input$pollutant_gif,
+#       update = setProgress # Esto vincula la barra de progreso de Shiny
+#     )
+#     
+#     if(is.null(df_gif) || nrow(df_gif) == 0) {
+#       showNotification("No hay datos suficientes para generar el GIF.", type = "warning")
+#       esta_cargando_gif(FALSE)
+#       return()
+#     }
+#     
+#     # 2. Generamos el GIF (usando la función make_pollution_gif que ya ajustamos)
+#     setProgress(value = 0.9, detail = "Renderizando cuadros finales...")
+#     path <- make_pollution_gif(df_gif, input$pollutant_gif)
+#     
+#     datos_gif_path(path)
+#   })
+#   esta_cargando_gif(FALSE)
+# })
+# 
+# output$gif_plot_output <- renderImage({
+#   path <- req(datos_gif_path())
+#   list(src = path, contentType = "image/gif", width = "100%", height = "auto")
+# }, deleteFile = FALSE)
 
   
 }

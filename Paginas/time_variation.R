@@ -14,7 +14,13 @@ ui_time_variation <- nav_panel_hidden(
                   choices = NULL),
       hr(),
       div(class="text-center mb-3",
-          uiOutput("control_rose_ui")),
+          uiOutput("control_time_ui")),
+      hr(),
+      
+      #Boton para el analisis
+      actionButton("btn_analizar_tv", "Analizar Gráfica",
+                   icon=bs_icon("robot"),
+                   class="btn-primary w-100"),
       
       hr(),
       actionButton("volver_inicio", "Volver al Menú", 
@@ -23,7 +29,16 @@ ui_time_variation <- nav_panel_hidden(
     card(
       card_header("Resultado del Análisis Temporal"),
       card_body(
-        plotOutput("time_variation_plot", height = "600px")
+        plotOutput("time_variation_plot", height = "600px"),
+        hr(),
+        #Seccion para el resutaldo de la IA
+        accordion(
+          accordion_panel(
+            "Analisis Detallado",
+            icon = bs_icon("incognito"),
+            uiOutput("analisis_ia_out")
+          )
+        )
       )
     )
   )

@@ -107,3 +107,42 @@ get_rmcab_summary <- function(update = NULL) {
   ))
 }
 
+get_data_for_gif <- function(fecha, contaminante_sel, update = NULL) {
+  # Usamos la lista de estaciones de la librería oficial
+  estaciones_lista <- bogotAIR::rmcab_aqs$aqs
+  all_data <- list()
+  
+  n <- length(estaciones_lista)
+  fecha_str <- format(fecha, "%d-%m-%Y")
+  
+  for(i in 1:n) {
+    est <- estaciones_lista[i]
+    
+    # --- PROGRESO PARA LA UI ---
+    if (is.function(update)) {
+      update(value = i/n, detail = paste("Descargando estación:", est))
+    }
+    
+    resultado_estacion <- try({
+      get_data_clean(aqs = est, start_date = fecha_str, end_date = fecha_str)
+    }, silent = TRUE)
+    
+    if(!inherits(resultado_estacion, "try-error") && !is.null(resultado_estacion)) {
+      temp <- resultado_estacion
+      names(temp) <- tolower(names(temp))
+      
+      # Verificamos si la estación mide el contaminante seleccionado
+      if(contaminante_sel %in% names(temp)) {
+        # Guardamos: Estación, Fecha/Hora y el Valor del contaminante
+        all_data[[est]] <- temp %>% 
+          select(station, date, all_of(contaminante_sel)) %>%
+          mutate(across(all_of(contaminante_sel), ~as.numeric(as.character(.x))))
+      }
+    }
+    Sys.sleep(0.1) # Pausa más corta para que el GIF no tarde tanto en procesar
+  }
+  
+  if (length(all_data) == 0) return(NULL)
+  
+  # Unimos todo en un solo dataframe
+  return(bind_rows(all_data))}
