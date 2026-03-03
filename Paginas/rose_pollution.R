@@ -35,7 +35,10 @@ ui_rose_pollution <- nav_panel_hidden(
           accordion_panel(
             "Analisis Detallado",
             icon = bs_icon("incognito"),
-            uiOutput("analisis_ia_out_rose")
+            withSpinner(uiOutput("analisis_ia_out_rose"),
+                        type=4,
+                        color="#01579B",
+                        size=0.7)
           )
         )
       )

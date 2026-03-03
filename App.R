@@ -612,6 +612,12 @@ output$plot_rose<-renderPlot({
 datos_corplot <- reactiveVal(NULL)
 esta_cargando_corplot <- reactiveVal(FALSE)
 
+#Variables IA
+#Variables IA
+v_res_cor_objeto <- reactiveVal(NULL) #Guarda el objeto de openar
+texto_analisis_ia_cor <- reactiveVal("") #Guarda la respuesta
+esta_analizando_ia <- reactiveVal(FALSE) #Estado de carga de la ia
+
 # Control Dinámico Botón
 output$control_corplot_ui <- renderUI({
   if(esta_cargando_corplot()){
@@ -630,8 +636,11 @@ output$control_corplot_ui <- renderUI({
 # Lógica descarga al presionar botón
 observeEvent(input$generar_corplot, {
   req(input$dates_corplot, input$station_corplot)
-  esta_cargando_corplot(TRUE)
+
   datos_corplot(NULL)
+  texto_analisis_ia_cor("")
+  v_res_cor_objeto(NULL)
+  esta_cargando_corplot(TRUE)
   
   withProgress(message = "Obteniendo datos para matriz...", value=0.2, {
     output$mensaje_carga_corplot <- renderText({ 
@@ -691,11 +700,107 @@ output$plot_corplot <- renderPlot({
   # Intentar graficar
   tryCatch({
     # Usamos el dataframe filtrado
-    plot_correlation(data = df_contaminantes)
+    resultado<- plot_correlation(data = df_contaminantes)
+    v_res_cor_objeto(resultado)
+    resultado
   }, error = function(e){
     validate("Error de graficación: Los datos actuales no permiten generar la matriz (posibles NAs masivos).")
   })
 })
+
+#Analisis IA
+observeEvent(input$btn_analizar_cor, {
+  req(v_res_cor_objeto()) 
+  texto_analisis_ia_cor(NULL)
+  
+  if(is.null(v_res_cor_objeto()$data)) {
+    showNotification("Error: No hay datos en la matriz para analizar.", type = "error")
+    return()
+  }
+  
+  res_obj <- v_res_cor_objeto()
+  datos_df <- as.data.frame(res_obj$data)
+  
+  # Aislamos para evitar reactividad no deseada
+
+  s_ia_cor <- isolate(input$station_corplot)
+  
+  names(datos_df)[1]<- "var1"
+  names(datos_df)[2]<- "var2"
+  
+  if("cor" %in% names(datos_df)){
+    names(datos_df)[names(datos_df) == "cor"] <- "valor"
+  } else {
+    names(datos_df)[3]<-"valor"
+  }
+  
+  
+  texto_analisis_ia_cor("Analizando matriz de correalciones")
+  
+  # Preparar datos
+ datos_df <- datos_df[as.character(datos_df$var1) != as.character(datos_df$var2), ]
+ datos_df$valor <- round(as.numeric(datos_df$valor), 1)
+ datos_df<- datos_df[as.numeric(factor(datos_df$var1))>as.numeric(factor(datos_df$var2)), ]
+ datos_json <- jsonlite::toJSON(datos_df)
+  
+  tryCatch({
+    api_key <- Sys.getenv("GEMINI_API_KEY")
+    
+    # URL MODIFICADA (Usando gemini-pro que es la ruta más compatible)
+    url_ia <- "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    
+    # Construcción manual del cuerpo para asegurar compatibilidad total
+    cuerpo <- list(
+      contents = list(
+        list(parts = list(list(text = paste(
+          "Actúa como un experto en calidad del aire de la red RMCAB de Bogotá.",
+          "Analiza la siguiente matriz de correlación de contaminantes:", datos_json,"para la estacion", s_ia_cor,
+          "Explica qué significan las correlaciones más fuertes (cercanas a 1 o -1)",
+          "y menciona posibles fuentes comunes o reacciones químicas (como el ciclo fotoquímico NO2-O3) en el contexto de Bogotá."
+        ))))
+      )
+    )
+    
+    # Petición usando el método de tubería (pipeline) de httr2
+    resp <- httr2::request(url_ia) %>%
+      httr2::req_url_query(key = api_key) %>%
+      httr2::req_body_json(cuerpo) %>%
+      httr2::req_method("POST") %>%
+      httr2::req_perform()
+    
+    # Procesar respuesta
+    resultado <- httr2::resp_body_json(resp)
+    
+    # Extraer texto (con validación de existencia)
+    if (!is.null(resultado$candidates)) {
+      texto_final <- resultado$candidates[[1]]$content$parts[[1]]$text
+      texto_analisis_ia_cor(texto_final)
+    } else {
+      texto_analisis_ia_cor("El servidor respondió pero no generó texto. Intenta de nuevo.")
+    }
+    
+  }, error = function(e) {
+    # Si sigue saliendo 404, el mensaje nos dirá exactamente qué URL falló
+    texto_analisis_ia_cor(paste("Error en la ruta del modelo:", e$message))
+    message("Error 404 detectado. URL intentada: ", url_ia)
+  })
+})
+
+output$analisis_ia_out_cor<- renderUI({
+  if(texto_analisis_ia_cor()==""){
+    p("Haz clic en 'Analizar Gráfica' para generar una interpretacion automática.",
+      style = "color: #888; font-style:italic; padding:10px")
+  }else{
+    div(
+      class="analisis-container",
+      style="background-color:#f8f9fa; border-left:4px solid #0d6efd; padding:15px; border-radius:px",
+      markdown(texto_analisis_ia_cor())
+    )
+  }
+})
+
+
+
 
 # PAGINA 4 - GIFT
 # datos_gif_path<- reactiveVal(NULL)
