@@ -1,4 +1,6 @@
 # cor_plot.R
+library(shinycssloaders)
+
 ui_corplot <- nav_panel_hidden(
   "pagina_cor", # ID de esta página
   layout_sidebar(
@@ -17,7 +19,18 @@ ui_corplot <- nav_panel_hidden(
     ),
     card(
       card_header("Correlacion de Contaminantes"),
-      plotOutput("plot_corplot", height = "600px") # ID ÚNICO AQUÍ
-    )
+      card_body(
+        withSpinner(plotOutput("plot_corplot", height = "600px"),color = "#78909c"),
+        hr(),
+        #Seccion para el resutaldo de la IA
+        accordion(
+          accordion_panel(
+            "Analisis Detallado",
+            icon = bs_icon("incognito"),
+            uiOutput("analisis_ia_out_cor")
+          )
+        )
+      )
   )
+)
 )

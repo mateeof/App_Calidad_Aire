@@ -1,4 +1,6 @@
 # rose_pollution.R
+library(shinycssloaders)
+
 ui_rose_pollution <- nav_panel_hidden(
   "pagina_rosa", # ID de esta página
   layout_sidebar(
@@ -26,7 +28,7 @@ ui_rose_pollution <- nav_panel_hidden(
     card(
       card_header("Rosa de Vientos y Contaminación"),
       card_body(
-        plotOutput("plot_rose", height = "600px"),
+        withSpinner(plotOutput("plot_rose", height = "600px"), color="#01579B"),
         hr(),
         #Seccion para el resutaldo de la IA
         accordion(
