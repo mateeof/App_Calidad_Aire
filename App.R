@@ -533,12 +533,11 @@ output$control_rose_ui <- renderUI({
 observeEvent(input$generar_rose,{
   req(input$dates_rose, input$station_rose)
   
+  datos_rose(NULL)
   texto_analisis_ia_rp("")
   v_res_rp_objeto(NULL)
   esta_cargando_rose(TRUE)
   
-  #Limpiar analisis previo al generar nueva grafica
-  texto_analisis_ia_rp("")
   
   withProgress(message = "Obteniendo datos meteorologicos...", value=0.5,{
     output$mensaje_carga_rose <- renderText({ 
@@ -604,6 +603,120 @@ output$plot_rose<-renderPlot({
   })
   
 })
+
+observeEvent(input$btn_analizar_rp, {
+  req(v_res_rp_objeto())
+  texto_analisis_ia_rp(NULL)
+  
+  p_ia <- isolate(input$pollutant_rose)
+  s_ia <- isolate(input$station_rose)
+  
+  texto_analisis_ia_rp("Estableciendo conexión segura con Google...")
+  
+  # --- PREPARAR DATOS REALES DE LA ROSA ---
+  res_obj <- v_res_rp_objeto()
+  datos_df <- as.data.frame(res_obj$data)
+  
+  # Columnas de intervalos de concentración (los bins de color de la rosa)
+  cols_intervalos <- grep("^Interval", names(datos_df), value = TRUE)
+  
+  # Construir tabla resumen: dirección + frecuencia acumulada por bin
+  resumen <- datos_df[, c("wd", cols_intervalos), drop = FALSE]
+  resumen$direccion_grados <- resumen$wd
+  resumen$frecuencia_total_pct <- rowSums(resumen[, cols_intervalos], na.rm = TRUE)
+  resumen$wd <- NULL
+  
+  # Renombrar intervalos con contexto
+  n_bins <- length(cols_intervalos)
+  for (i in seq_along(cols_intervalos)) {
+    names(resumen)[names(resumen) == cols_intervalos[i]] <- paste0("bin_", i, "_de_", n_bins, "_pct")
+  }
+  
+  # Extraer los límites de los bins desde el objeto (si están disponibles en call)
+  breaks_info <- tryCatch({
+    as.character(res_obj$call)
+  }, error = function(e) "no disponible")
+  
+  datos_json <- jsonlite::toJSON(
+    list(
+      descripcion = paste(
+        "Rosa de contaminantes para", p_ia, "en estacion", s_ia,
+        "- Cada fila es un sector de direccion del viento.",
+        "Los bins (bin_1 al bin_N) representan categorias de concentracion de menor a mayor.",
+        "El valor es el porcentaje de observaciones en esa categoria para esa direccion.",
+        "frecuencia_total_pct es el porcentaje total de vientos desde esa direccion."
+      ),
+      datos_por_sector = resumen
+    ),
+    auto_unbox = TRUE,
+    pretty = FALSE,
+    na = "null"
+  )
+  
+  tryCatch({
+    api_key <- Sys.getenv("GEMINI_API_KEY")
+    url_ia <- "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    
+    prompt_texto <- paste0(
+      "Eres un experto en calidad del aire de Bogotá. ",
+      "Analiza los datos de una Rosa de Contaminantes para '", p_ia, 
+      "' en la estación '", s_ia, "'. ",
+      "Cada fila representa un sector de dirección del viento. ",
+      "Los bins van de concentración baja (bin_1) a alta (bin_N) y el valor es el porcentaje de observaciones. ",
+      "frecuencia_total_pct indica qué tan frecuente es el viento desde esa dirección. ",
+      "Por favor: ",
+      "1) Identifica las direcciones con mayor concentración del contaminante. ",
+      "2) Señala si hay una fuente probable según esas direcciones en el contexto urbano de Bogotá. ",
+      "3) Comenta si el viento dominante coincide o no con las mayores concentraciones. ",
+      "4) Da una conclusión breve sobre el riesgo para la zona. ",
+      "No uses en la descripcion los terminos bin_1 o bin_N o frecuencia_total_pct. Pues el usuario no va a saber que eso, reemplazo el nombre ent erminos que
+      entienda la poblacion en general. Debe ser un analisis que cualquier persona pueda entender pero mantiendo en cierto grado lo tecnico",
+      "Datos JSON: ", datos_json
+    )
+    
+    cuerpo <- list(
+      contents = list(
+        list(parts = list(list(text = prompt_texto)))
+      )
+    )
+    
+    resp <- httr2::request(url_ia) %>%
+      httr2::req_url_query(key = api_key) %>%
+      httr2::req_body_json(cuerpo) %>%
+      httr2::req_method("POST") %>%
+      httr2::req_perform()
+    
+    resultado <- httr2::resp_body_json(resp)
+    
+    if (!is.null(resultado$candidates)) {
+      texto_final <- resultado$candidates[[1]]$content$parts[[1]]$text
+      texto_analisis_ia_rp(texto_final)
+    } else {
+      texto_analisis_ia_rp("El servidor respondió pero no generó texto. Intenta de nuevo.")
+    }
+    
+  }, error = function(e) {
+    texto_analisis_ia_rp(paste("Error al conectar con Gemini:", e$message))
+  })
+})
+
+output$analisis_ia_out_rp <- renderUI({
+  texto <- texto_analisis_ia_rp()
+  if (is.null(texto) || texto == "") {
+    p("Haz clic en 'Analizar Rosa' para generar una interpretación automática.",
+      style = "color: #888; font-style:italic; padding:10px")
+  } else {
+    div(
+      class = "analisis-container",
+      style = "background-color:#f8f9fa; border-left:4px solid #0277BD; padding:15px; border-radius:4px",
+      markdown(texto)
+    )
+  }
+})
+
+
+
+
 
 
 
