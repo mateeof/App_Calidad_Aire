@@ -292,7 +292,7 @@ server <- function (input, output, session){
   })
 
   
-  #---- Contaminante Dominante con Botón y Progreso -----
+#---- Contaminante Dominante con Botón y Progreso -----
   
   # 1. Creamos una variable reactiva vacía
   resumen_data <- reactiveVal(NULL)
@@ -339,7 +339,7 @@ server <- function (input, output, session){
   })
 
   
-  #----LOGICA PAGINA: Variacion Temporal----
+#----LOGICA PAGINA: Variacion Temporal----
 
 datos_time_historicos <- reactiveVal(NULL)
 esta_cargando_time <- reactiveVal(FALSE)
@@ -963,7 +963,7 @@ output$analisis_ia_out_cor<- renderUI({
 #   list(src = path, contentType = "image/gif", width = "100%", height = "auto")
 # }, deleteFile = FALSE)
 
-## ------------------- LOGICA PAGINA: SCATTER -------------------
+#----LOGICA PAGINA: SCATTER -------------------
 datos_scatter <- reactiveVal(NULL)
 esta_cargando_scatter <- reactiveVal(FALSE)
 
