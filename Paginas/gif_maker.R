@@ -27,7 +27,7 @@ ui_gif_maker <- nav_panel_hidden(
         withSpinner(imageOutput("gif_plot_output"), color = "#FBC02D")
       ),
       card_footer(
-        p("Nota: La generación del GIF puede tardar entre unos minutos debido al procesamiento de imágenes.", 
+        p("Nota: La generación del GIF puede tardar unos minutos debido al procesamiento de imágenes.", 
           style = "font-size: 0.8rem; color: #777; text-align: center;")
       )
     ),
