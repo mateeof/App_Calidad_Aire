@@ -5,7 +5,7 @@ library(leaflet)
 library(ggplot2)
 library(shinycssloaders)
 library(bogotAIR)
-library(terra)
+#library(terra)
 library(gganimate)
 library(magick)
 library(httr2)
@@ -14,7 +14,7 @@ library(dplyr)
 library(lubridate)
 library(osmdata)
 library(sf)
-library(maptiles)
+#library(maptiles)
 library(png)
 
 source("Scripts/data_download_processing.R")
@@ -277,7 +277,7 @@ ui <- page_fillable(
                                div(class = "text-center my-3",
                                    style = "border-radius: 10px; padding: 10px; border: 1px solid #e2e8f0;",
                                    tags$img(
-                                     src = "map_gif_preview.png", 
+                                     src = "MapaGif.png", 
                                      style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));"   )
                                ) ),
                              
@@ -1098,13 +1098,18 @@ datos_historicos_gif <- tryCatch({
 
 # Descargar fondo
 fondo_bogota <- tryCatch({
+  #si ya existe el arichivo lo lee si no lo genera
+  cache_path <- "datos/fondo_bogota.rds"
+  if (file.exists(cache_path)){
+    readRDS(cache_path)
+  } else {
   calles_osm <- osmdata::opq(bbox = c(-74.25, 4.48, -73.95, 4.82)) %>%
     osmdata::add_osm_feature(key = "highway",
-                             value = c("primary", "secondary", "tertiary")) %>%
+                             value = c("primary", "secondary")) %>% 
     osmdata::osmdata_sf() %>%
     .$osm_lines
   fondo_path <- tempfile(fileext = ".png")
-  ragg::agg_png(fondo_path, width = 1800, height = 1440, res = 300)
+  ragg::agg_png(fondo_path, width = 700, height = 560, res = 100)
   print(
     ggplot() +
       geom_sf(data = calles_osm, color = "#A5B8D1", linewidth = 0.3) +
@@ -1114,8 +1119,9 @@ fondo_bogota <- tryCatch({
   dev.off()
   png::readPNG(fondo_path)
   
-}, error = function(e) {
-  message("Error cargando calles OSM: ", e$message)
+  }
+}, 
+  error = function(e) {message("Error cargando calles OSM: ", e$message)
   NULL
 })
 # Botón dinámico
@@ -1198,14 +1204,14 @@ observeEvent(input$generar_gif, {
     incProgress(0.8, detail = "Generando animación...")
     
     animacion <- mapa +
-      transition_states( periodo, transition_length = 0, state_length      = 2, wrap              = TRUE ) +
+      transition_states( periodo, transition_length = 0, state_length = 1, wrap              = TRUE ) +
       ease_aes("cubic-in-out") +
       enter_fade(alpha = 0.3) +
       exit_fade(alpha = 0.3)
     
     n_periodos <- length(unique(datos_mensuales$periodo))
     
-    gif <- gganimate::animate( animacion, width= 900, heigh= 720,  res = 130,  fps = 10,  nframes = n_periodos * 10,  rewind = FALSE,  renderer = magick_renderer() )
+    gif <- gganimate::animate( animacion, width= 700, heigh= 560,  res = 100,  fps = 10,  nframes = n_periodos * 3,  rewind = FALSE,  renderer = magick_renderer() )
     
     path <- tempfile(fileext = ".gif")
     magick::image_write(gif, path)
