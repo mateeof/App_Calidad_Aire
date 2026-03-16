@@ -135,9 +135,9 @@ get_data_for_gif <- function(fecha, contaminante_sel, update = NULL) {
       # Verificamos si la estación mide el contaminante seleccionado
       if(contaminante_sel %in% names(temp)) {
         # Guardamos: Estación, Fecha/Hora y el Valor del contaminante
-        all_data[[est]] <- temp %>% 
-          select(site, date, all_of(contaminante_sel)) %>%
-          mutate(across(all_of(contaminante_sel), ~as.numeric(as.character(.x))))
+        all_data[[est]] <- temp %>%
+          select(site, date, any_of(c("pm2.5", "pm10", "ozono", "no2", "so2", "co"))) %>%
+          mutate(across(-c(site, date), ~as.numeric(as.character(.x))))
       }
     }
     Sys.sleep(0.1) # Pausa más corta para que el GIF no tarde tanto en procesar
@@ -147,3 +147,67 @@ get_data_for_gif <- function(fecha, contaminante_sel, update = NULL) {
   
   # Unimos todo en un solo dataframe
   return(bind_rows(all_data))}
+
+# Función para calcular el IBOCA
+calcular_iboca <- function(pm2.5 = NA, pm10 = NA, ozono = NA, 
+                           no2 = NA, so2 = NA, co = NA) {
+  
+  # Sub-índice por contaminante según tabla IBOCA
+  subindice <- function(valor, breakpoints_conc, breakpoints_iboca) {
+    if (is.na(valor)) return(NA)
+    
+    for (i in 1:(length(breakpoints_conc) - 1)) {
+      if (valor >= breakpoints_conc[i] && valor <= breakpoints_conc[i + 1]) {
+        iboca <- ((breakpoints_iboca[i + 1] - breakpoints_iboca[i]) /
+                    (breakpoints_conc[i + 1] - breakpoints_conc[i])) *
+          (valor - breakpoints_conc[i]) + breakpoints_iboca[i]
+        return(round(iboca))
+      }
+    }
+    return(500) # fuera de rango máximo
+  }
+  
+  # Breakpoints de concentración y sus IBOCA correspondientes
+  i_pm25  <- subindice(pm2.5,
+                       c(0, 12,   35.4, 55.4,  151.2, 250.4, 500.4),
+                       c(0, 50,  100,   150,   200,   300,   500))
+  
+  i_pm10  <- subindice(pm10,
+                       c(0, 27.2, 63.8, 95.5,  246.7, 405.2, 800.4),
+                       c(0, 50,  100,   150,   200,   300,   500))
+  
+  i_o3    <- subindice(ozono,
+                       c(0, 72,  107,   137,   281,   432,   809),
+                       c(0, 50,  100,   150,   200,   300,   500))
+  
+  i_no2   <- subindice(no2,
+                       c(0, 28.5, 84.1, 132.2, 361.9, 602.6, 1202.6),
+                       c(0, 50,  100,   150,   200,   300,   500))
+  
+  i_so2   <- subindice(so2,
+                       c(0, 9.6,  38.5, 63.5,  182.7, 307.7, 619.2),
+                       c(0, 50,  100,   150,   200,   300,   500))
+  
+  i_co    <- subindice(co,
+                       c(0, 2549, 5022, 7165,  17384, 28099, 54802),
+                       c(0, 50,   100,  150,   200,   300,   500))
+  
+  # IBOCA = máximo de todos los sub-índices disponibles
+  valores <- c(i_pm25, i_pm10, i_o3, i_no2, i_so2, i_co)
+  valores <- valores[!is.na(valores)]
+  if (length(valores) == 0) return(NA)
+  iboca_final <- max(valores)
+  
+  if (is.infinite(iboca_final)) return(NA)
+  return(iboca_final)
+}
+
+color_iboca <- function(iboca) {
+  if (is.na(iboca))      return(list(color = "#CCCCCC", nivel = "Sin datos",    emoji = "⚪"))
+  if (iboca <= 50)       return(list(color = "#68E045", nivel = "Bajo",         emoji = "🟢"))
+  if (iboca <= 100)      return(list(color = "#FFFE54", nivel = "Moderado",     emoji = "🟡"))
+  if (iboca <= 150)      return(list(color = "#ECBA41", nivel = "Regular",      emoji = "🟠"))
+  if (iboca <= 200)      return(list(color = "#E63527", nivel = "Alto",         emoji = "🔴"))
+  if (iboca <= 300)      return(list(color = "#8F3F97", nivel = "Peligroso",    emoji = "🟣"))
+  return(                 list(color = "#66329A", nivel = "Muy Peligroso",      emoji = "⛔"))
+}

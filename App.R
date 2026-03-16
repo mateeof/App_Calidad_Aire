@@ -5,6 +5,7 @@ library(leaflet)
 library(ggplot2)
 library(shinycssloaders)
 library(bogotAIR)
+library(terra)
 library(gganimate)
 library(magick)
 library(httr2)
@@ -13,6 +14,8 @@ library(dplyr)
 library(lubridate)
 library(osmdata)
 library(sf)
+library(maptiles)
+library(png)
 
 source("Scripts/data_download_processing.R")
 source("Scripts/plots.R")
@@ -259,22 +262,29 @@ ui <- page_fillable(
                            ),
                            # Tarjeta 4: Mapa Animado (GIF)
                            card(
-                             card_header("Evolución Espacial", class = "bg-warning text-dark", style="font-size:1.2rem"),
-                             card_body(
-                               div(style = "min-height: 100px;",
-                                   p(strong("¿Como ha cambiado la contaminación con el paso del tiempo?"), 
-                                     style = "font-size: 1rem; color: #856404; margin-bottom: 5px;text-align:center"),
-                                   p("Genera un mapa animado donde a partir de colores y tamaños se logra identificar el cambio de los niveles de contaminación de la ciudad", 
-                                     style = "font-size: 1rem; color: #666;")
-                               ),
+                             style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
+                      
+                             card_header( div(class = "d-flex align-items-center", bs_icon("map", size = "1.5rem", class = "me-2"), span("Evolución Espacial", style = "font-weight: 700; font-size: 1.25rem;") ),
+                               style = "background-color: #F9A825; color: black; border: none; padding: 15px;" ),
+                          
+                             card_body(style = "padding: 20px; background-color: white;",
+                               div(style = "min-height: 90px; text-align: center;",
+                                   p("¿Cómo ha cambiado la contaminación con el paso del tiempo?", 
+                                     style = "font-size: 1.1rem; color: #2c3e50; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
+                                   p("Genera un mapa animado donde a partir del IBOCA se logra identificar la evolución mensual de los niveles de contaminación en la ciudad.", 
+                                     style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")),
+                               
                                div(class = "text-center my-3",
-                                   tags$img(src = "map_gif_preview.png", style = "width: 100%; max-height: 200px; object-fit: contain; border-radius: 5px;")
-                               )
-                             ),
+                                   style = "border-radius: 10px; padding: 10px; border: 1px solid #e2e8f0;",
+                                   tags$img(
+                                     src = "map_gif_preview.png", 
+                                     style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));"   )
+                               ) ),
+                             
                              card_footer(
-                               actionButton("ir_gif", "Generar Mapa Animado", class = "btn-outline-warning w-100")
-                             )
-                           ),
+                               style = "background: white; border-top: 1px solid #f1f1f1; padding: 15px;",
+                               actionButton( "ir_gif", "Generar Mapa Animado", icon = bs_icon("play-circle"), style = "background-color: #F9A825; color: black; border: none; width: 100%; font-weight: 700; padding: 12px; border-radius: 8px;",  class = "btn-hover-effect"
+                               ) ) ),
                            # Tarjeta 5:Correlacion entre dos contaminantes
                            card(
                              # Consistencia total: radio de 15px, sin borde y sombra sutil
@@ -1078,116 +1088,124 @@ output$analisis_ia_out_cor<- renderUI({
 #------------------- PAGINA: MAPA GIF -------------------------------------------
 datos_gif_path <- reactiveVal(NULL)
 
+# Cargar datos históricos precalculados
+datos_historicos_gif <- tryCatch({
+  readRDS("datos/datos_gif_historicos.rds")
+}, error = function(e) {
+  message("Archivo histórico no encontrado")
+  NULL
+})
+
+# Descargar fondo
+fondo_bogota <- tryCatch({
+  calles_osm <- osmdata::opq(bbox = c(-74.25, 4.48, -73.95, 4.82)) %>%
+    osmdata::add_osm_feature(key = "highway",
+                             value = c("primary", "secondary", "tertiary")) %>%
+    osmdata::osmdata_sf() %>%
+    .$osm_lines
+  fondo_path <- tempfile(fileext = ".png")
+  ragg::agg_png(fondo_path, width = 1800, height = 1440, res = 300)
+  print(
+    ggplot() +
+      geom_sf(data = calles_osm, color = "#A5B8D1", linewidth = 0.3) +
+      theme_void() +
+      theme(plot.background = element_rect(fill = "#EEE8DA", color = NA)) +
+      coord_sf(xlim = c(-74.3, -73.9), ylim = c(4.45, 4.85)) )
+  dev.off()
+  png::readPNG(fondo_path)
+  
+}, error = function(e) {
+  message("Error cargando calles OSM: ", e$message)
+  NULL
+})
 # Botón dinámico
 output$control_gif_ui <- renderUI({
-  actionButton( "generar_gif", "Generar GIF",
-    icon = icon("film"),
-    style="background-color:#FBC02D; color:black; font-weight:700; width:100%"
-  )
+  actionButton("generar_gif", "Generar GIF",
+               icon = icon("film"),
+               style="background-color:#FBC02D; color:black; font-weight:700; width:100%" )
 })
 
 observeEvent(input$generar_gif, {
   
   withProgress(message = "Construyendo mapa histórico...", value = 0, {
     
-    incProgress(0.2, detail = "Descargando datos de todas las estaciones...")
+    incProgress(0.2, detail = "Leyendo datos historicos...")
     
-    # Rango de fechas: enero 2025 hasta ayer,
-    fecha_inicio <- as.Date("2025-01-01")
-    fecha_fin    <- Sys.Date() - 1
-    fechas       <- seq(fecha_inicio, fecha_fin, by = "month")
-    
-    datos_lista <- lapply(fechas, function(f) {
-      tryCatch({
-        df <- get_data_for_gif(  fecha = f,  contaminante_sel = "pm2.5")
-        if (is.null(df) || nrow(df) == 0) return(NULL)
-        
-        # Filtrar estaciones problemáticas
-        df <- df[!df$site %in% c("Bosa", "Usme"), ]
-        if (nrow(df) == 0) return(NULL)
-        
-        # Unir coordenadas 
-        df <- df %>%
-          left_join( rmcab_aqs[, c("aqs", "lat", "lon")], by = c("site" = "aqs")
-          ) %>%
-          mutate( fecha   = as.Date(f), periodo = format(f, "%Y-%m")   )
-        df
-      }, error = function(e) {
-        message("Error en fecha: ", f, " — ", e$message)
-        NULL
-      })
-    })
-    
-    datos <- bind_rows(datos_lista)
-    
-    # Validar que existan datos
-    if (is.null(datos) || nrow(datos) == 0) {
-      showNotification(
-        "No se obtuvieron datos para ningún periodo. Intenta más tarde.",
-        type = "error",
-        duration = 10
-      )
-      return()
-    }
-    
-    incProgress(0.4, detail = "Calculando promedios mensuales...")
-    
-    datos_mensuales <- datos %>%
-      rename(iboca = `pm2.5`) %>%
-      filter(!is.na(iboca), !is.na(lat), !is.na(lon)) %>%
-      group_by(site, periodo, lat, lon) %>%
-      summarise(
-        valor = mean(iboca, na.rm = TRUE),
-        .groups = "drop"
-      )
-    
-    # Validar que haya datos después del resumen
+    #validar que existan datos precalculados
+    if(is.null(datos_historicos_gif) || nrow(datos_historicos_gif) == 0 ){
+      showNotification("No se encontraron datos históricos. Ejecuta Scripts/descargar_historico.R primero.",
+        type = "error", duration = 10)
+      return()}
+  
+    datos_mensuales <- datos_historicos_gif %>%
+      filter(!is.na(lat), !is.na(lon), !is.na(valor))
     if (nrow(datos_mensuales) == 0) {
-      showNotification(  "No hay datos válidos para generar el mapa animado.",  type = "warning",  duration = 10
-      )
-      return()
-    }
+      showNotification("No hay datos válidos para generar el mapa animado.",
+        type = "warning", duration = 10)
+      return() }
     
     incProgress(0.6, detail = "Creando mapa...")
     
-    # Mapa base
-    bogota_osm <- osmdata::opq(bbox = c(-74.3, 4.45, -73.9, 4.85)) %>%
-      osmdata::add_osm_feature(key = "highway", 
-                               value = c("primary", "secondary")) %>%
-      osmdata::osmdata_sf()
-    
-    calles <- bogota_osm$osm_lines
-    
     mapa <- ggplot() +
       
-      geom_sf(  data  = calles,  color = "gray60",  size  = 0.3) +
-      geom_point(  data  = datos_mensuales,  aes(x = lon, y = lat, color = valor, size = valor),  alpha = 0.85) +
+      { if (!is.null(fondo_bogota))
+        annotation_raster( fondo_bogota, xmin = -74.3, xmax = -73.9, ymin = 4.45,  ymax = 4.85, interpolate = TRUE  )
+        else
+          geom_blank() } +
       
+      geom_point(  data  = datos_mensuales,
+        aes(x = lon, y = lat, color = valor, size = valor),
+        alpha = 0.85  ) +
       scale_color_gradientn(
-        colours = c("#00E400","#FFFF00","#FF7E00","#FF0000","#8F3F97") # ordenados de bueno -> moderado -> Dañino -> muy dañino ->peligroso
-      ) +
-      scale_size_continuous(range = c(5, 20)) +
+        colours = c("#68E045","#FFFE54","#ECBA41","#E63527","#8F3F97","#66329A"),
+        values  = scales::rescale(c(0, 50, 100, 150, 200, 300, 500)),
+        limits  = c(0, 500),
+        oob     = scales::squish,
+        guide   = "none" ) +
+      scale_size_continuous(range = c(5, 20), guide = "none") +
+      annotate("rect",
+               xmin  = rep(-74.28, 6),
+               xmax  = rep(-74.26, 6),
+               ymin  = seq(4.82, 4.57, length.out = 6) - 0.012,
+               ymax  = seq(4.82, 4.57, length.out = 6) + 0.012,
+               fill  = c("#68E045","#FFFE54","#ECBA41","#E63527","#8F3F97","#66329A"),
+               color = "gray40"  ) +
+      annotate("text",
+               x     = rep(-74.255, 6),
+               y     = seq(4.82, 4.57, length.out = 6),
+               label = c("Bajo (0-50)","Moderado (51-100)","Regular (101-150)",
+                         "Alto (151-200)","Peligroso (201-300)","Muy Peligroso (>300)"),
+               hjust = 0, size = 2.5, color = "gray20"  ) +
+      annotate("text",
+               x = -74.28, y = 4.845,
+               label = "IBOCA", fontface = "bold", size = 3.5, hjust = 0  ) +
       
-      labs(  title = "Evolución de la Calidad del Aire en Bogotá",  subtitle = "Periodo: {closest_state}",  color = "PM2.5",  size = "PM2.5"
-      ) +
+      labs(
+        title    = "Evolución de la Calidad del Aire en Bogotá",
+        subtitle = "Periodo: {closest_state}"  ) +
       
-      theme_minimal() +
-      theme( plot.title  = element_text(face = "bold", size = 14), plot.subtitle  = element_text(size = 11), legend.position = "right", axis.title  = element_blank()
-      ) +
+      theme_void() +
+      theme(
+        plot.title      = element_text(face = "bold", size = 14, hjust = 0.5),
+        plot.subtitle   = element_text(size = 11, hjust = 0.5),
+        legend.position = "none",
+        plot.background = element_rect(fill = "white", color = NA)  ) +
       
-      coord_sf(  xlim = c(-74.3, -73.9),  ylim = c(4.45,  4.85)
-      )
+      coord_cartesian(
+        xlim = c(-74.2, -73.95),
+        ylim = c(4.48,  4.82)  )
     
-    incProgress(0.8, detail = "Generando animación... ")
+    incProgress(0.8, detail = "Generando animación...")
     
     animacion <- mapa +
-      transition_states(  periodo,  transition_length = 0,  state_length = 2,  wrap = TRUE
-      ) + 
+      transition_states( periodo, transition_length = 0, state_length      = 2, wrap              = TRUE ) +
       ease_aes("cubic-in-out") +
-      enter_fade(alpha=0.3) + exit_fade(alpha=0.3)
+      enter_fade(alpha = 0.3) +
+      exit_fade(alpha = 0.3)
     
-    gif <- animate(  animacion,  width  = 750,  height = 600,  fps = 50,  nframes = 100,  rewind = FALSE,  renderer = magick_renderer()
-    )
+    n_periodos <- length(unique(datos_mensuales$periodo))
+    
+    gif <- gganimate::animate( animacion, width= 900, heigh= 720,  res = 130,  fps = 10,  nframes = n_periodos * 10,  rewind = FALSE,  renderer = magick_renderer() )
     
     path <- tempfile(fileext = ".gif")
     magick::image_write(gif, path)
@@ -1197,13 +1215,9 @@ observeEvent(input$generar_gif, {
 })
 
 output$gif_plot_output <- renderImage({
-  
   path <- req(datos_gif_path())
-  
-  list( src = path,  contentType = "image/gif",  width= "100%" )
-  
+  list(src = path, contentType = "image/gif", width = "100%")
 }, deleteFile = FALSE)
-
 #----LOGICA PAGINA: SCATTER -------------------
 
 datos_scatter <- reactiveVal(NULL)
