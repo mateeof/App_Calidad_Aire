@@ -5,17 +5,16 @@ library(leaflet)
 library(ggplot2)
 library(shinycssloaders)
 library(bogotAIR)
-#library(terra)
 library(gganimate)
 library(magick)
 library(httr2)
 library(jsonlite)
 library(dplyr)
 library(lubridate)
-library(osmdata)
+#library(osmdata)
 library(sf)
-#library(maptiles)
 library(png)
+library(maptiles)
 
 source("Scripts/data_download_processing.R")
 source("Scripts/plots.R")
@@ -1103,22 +1102,20 @@ fondo_bogota <- tryCatch({
   if (file.exists(cache_path)){
     readRDS(cache_path)
   } else {
-  calles_osm <- osmdata::opq(bbox = c(-74.25, 4.48, -73.95, 4.82)) %>%
-    osmdata::add_osm_feature(key = "highway",
-                             value = c("primary", "secondary")) %>% 
-    osmdata::osmdata_sf() %>%
-    .$osm_lines
-  fondo_path <- tempfile(fileext = ".png")
-  ragg::agg_png(fondo_path, width = 700, height = 560, res = 100)
-  print(
-    ggplot() +
-      geom_sf(data = calles_osm, color = "#A5B8D1", linewidth = 0.3) +
-      theme_void() +
-      theme(plot.background = element_rect(fill = "#EEE8DA", color = NA)) +
-      coord_sf(xlim = c(-74.3, -73.9), ylim = c(4.45, 4.85)) )
-  dev.off()
-  png::readPNG(fondo_path)
-  
+    bbox_bogota <- sf::st_bbox(
+      c(xmin = -74.25, ymin = 4.48, xmax = -73.95, ymax = 4.82),
+      crs = sf::st_crs(4326)
+    )
+    tiles <- maptiles::get_tiles( x = bbox_bogota, provider = "OpenStreetMap", zoom = 11, crop= TRUE )
+    
+    fondo_path <- tempfile(fileext = ".png")
+    ragg::agg_png(fondo_path, width = 1400, height = 1120, res = 200)
+    terra::plotRGB(tiles, smooth = TRUE)
+    dev.off()
+    
+    img <- png::readPNG(fondo_path)
+    saveRDS(img, cache_path)
+    img
   }
 }, 
   error = function(e) {message("Error cargando calles OSM: ", e$message)
@@ -1157,7 +1154,11 @@ observeEvent(input$generar_gif, {
       { if (!is.null(fondo_bogota))
         annotation_raster( fondo_bogota, xmin = -74.3, xmax = -73.9, ymin = 4.45,  ymax = 4.85, interpolate = TRUE  )
         else
-          geom_blank() } +
+          annotate("rect",
+                   xmin = -74.25, xmax = -73.95,
+                   ymin = 4.48,   ymax = 4.82,
+                   fill = "#EEE8DA", color = "#A5B8D1"
+          ) } +
       
       geom_point(  data  = datos_mensuales,
         aes(x = lon, y = lat, color = valor, size = valor),
@@ -1211,7 +1212,7 @@ observeEvent(input$generar_gif, {
     
     n_periodos <- length(unique(datos_mensuales$periodo))
     
-    gif <- gganimate::animate( animacion, width= 700, heigh= 560,  res = 100,  fps = 10,  nframes = n_periodos * 3,  rewind = FALSE,  renderer = magick_renderer() )
+    gif <- gganimate::animate( animacion, width= 900, heigh= 720,  res = 150,  fps = 10,  nframes = n_periodos * 3,  rewind = FALSE,  renderer = magick_renderer() )
     
     path <- tempfile(fileext = ".gif")
     magick::image_write(gif, path)
