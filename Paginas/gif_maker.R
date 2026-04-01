@@ -22,9 +22,9 @@ ui_gif_maker <- nav_panel_hidden(
     card(
       card_header("Mapa Dinámico de Calidad del Aire segun IBOCA"),
       card_body(
-        class = "d-flex justify-content-center align-items-center",
-        # Importante: para GIFs usamos imageOutput, no plotOutput
-        withSpinner(imageOutput("gif_plot_output"), color = "#FBC02D")
+        class = "p-0 d-flex justify-content-center",
+  
+        imageOutput("gif_plot_output", width = "100%", height = "auto")
       ),
       card_footer(
         p("Nota: La generación del GIF puede tardar unos minutos debido al procesamiento de imágenes.", 
