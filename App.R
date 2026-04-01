@@ -11,10 +11,13 @@ library(httr2)
 library(jsonlite)
 library(dplyr)
 library(lubridate)
-#library(osmdata)
 library(sf)
 library(png)
 library(maptiles)
+library(gstat) 
+library(terra) 
+library(scales)
+library(geodata)
 
 source("Scripts/data_download_processing.R")
 source("Scripts/plots.R")
@@ -1103,7 +1106,7 @@ fondo_bogota <- tryCatch({
     readRDS(cache_path)
   } else {
     bbox_bogota <- sf::st_bbox(
-      c(xmin = -74.25, ymin = 4.48, xmax = -73.95, ymax = 4.82),
+      c(xmin = -74.40, ymin = 4.5, xmax = -73.85, ymax = 4.78), 
       crs = sf::st_crs(4326)
     )
     tiles <- maptiles::get_tiles( x = bbox_bogota, provider = "OpenStreetMap", zoom = 11, crop= TRUE )
@@ -1118,7 +1121,7 @@ fondo_bogota <- tryCatch({
     img
   }
 }, 
-  error = function(e) {message("Error cargando calles OSM: ", e$message)
+error = function(e) {message("Error cargando calles OSM: ", e$message)
   NULL
 })
 # Botón dinámico
@@ -1137,14 +1140,17 @@ observeEvent(input$generar_gif, {
     #validar que existan datos precalculados
     if(is.null(datos_historicos_gif) || nrow(datos_historicos_gif) == 0 ){
       showNotification("No se encontraron datos históricos. Ejecuta Scripts/descargar_historico.R primero.",
-        type = "error", duration = 10)
+                       type = "error", duration = 10)
       return()}
-  
     datos_mensuales <- datos_historicos_gif %>%
+      mutate(
+        lat = case_when(site == "Usaquen" ~ 4.710350, TRUE ~ lat),
+        lon = case_when(site == "Usaquen" ~ -74.04, TRUE ~ lon)
+      ) %>%
       filter(!is.na(lat), !is.na(lon), !is.na(valor))
     if (nrow(datos_mensuales) == 0) {
       showNotification("No hay datos válidos para generar el mapa animado.",
-        type = "warning", duration = 10)
+                       type = "warning", duration = 10)
       return() }
     
     incProgress(0.6, detail = "Creando mapa...")
@@ -1152,7 +1158,7 @@ observeEvent(input$generar_gif, {
     mapa <- ggplot() +
       
       { if (!is.null(fondo_bogota))
-        annotation_raster( fondo_bogota, xmin = -74.3, xmax = -73.9, ymin = 4.45,  ymax = 4.85, interpolate = TRUE  )
+        annotation_raster( fondo_bogota, xmin = -74.40, xmax = -73.85, ymin = 4.40,  ymax = 4.90, interpolate = TRUE  )
         else
           annotate("rect",
                    xmin = -74.25, xmax = -73.95,
@@ -1161,8 +1167,28 @@ observeEvent(input$generar_gif, {
           ) } +
       
       geom_point(  data  = datos_mensuales,
-        aes(x = lon, y = lat, color = valor, size = valor),
-        alpha = 0.85  ) +
+                   aes(x = lon, y = lat, color = valor),
+                   size=22,
+                   alpha = 0.03  ) +
+      geom_point(  data  = datos_mensuales,
+                   aes(x = lon, y = lat, color = valor),
+                   size=18,
+                   alpha = 0.07  ) +
+      geom_point(data = datos_mensuales,
+                 aes(x = lon, y = lat, color = valor),
+                 size = 13, alpha = 0.11) +
+      
+      geom_point(data = datos_mensuales,
+                 aes(x = lon, y = lat, color = valor),
+                 size = 9, alpha = 0.23) +
+      
+      geom_point(data = datos_mensuales,
+                 aes(x = lon, y = lat, color = valor),
+                 size = 5, alpha = 0.60) +
+      
+      geom_point(data = datos_mensuales,
+                 aes(x = lon, y = lat, color = valor),
+                 size = 2, alpha = 0.90) +
       scale_color_gradientn(
         colours = c("#68E045","#FFFE54","#ECBA41","#E63527","#8F3F97","#66329A"),
         values  = scales::rescale(c(0, 50, 100, 150, 200, 300, 500)),
@@ -1170,23 +1196,6 @@ observeEvent(input$generar_gif, {
         oob     = scales::squish,
         guide   = "none" ) +
       scale_size_continuous(range = c(5, 20), guide = "none") +
-      annotate("rect",
-               xmin  = rep(-74.28, 6),
-               xmax  = rep(-74.26, 6),
-               ymin  = seq(4.82, 4.57, length.out = 6) - 0.012,
-               ymax  = seq(4.82, 4.57, length.out = 6) + 0.012,
-               fill  = c("#68E045","#FFFE54","#ECBA41","#E63527","#8F3F97","#66329A"),
-               color = "gray40"  ) +
-      annotate("text",
-               x     = rep(-74.255, 6),
-               y     = seq(4.82, 4.57, length.out = 6),
-               label = c("Bajo (0-50)","Moderado (51-100)","Regular (101-150)",
-                         "Alto (151-200)","Peligroso (201-300)","Muy Peligroso (>300)"),
-               hjust = 0, size = 2.5, color = "gray20"  ) +
-      annotate("text",
-               x = -74.28, y = 4.845,
-               label = "IBOCA", fontface = "bold", size = 3.5, hjust = 0  ) +
-      
       labs(
         title    = "Evolución de la Calidad del Aire en Bogotá",
         subtitle = "Periodo: {closest_state}"  ) +
@@ -1198,9 +1207,11 @@ observeEvent(input$generar_gif, {
         legend.position = "none",
         plot.background = element_rect(fill = "white", color = NA)  ) +
       
-      coord_cartesian(
-        xlim = c(-74.2, -73.95),
-        ylim = c(4.48,  4.82)  )
+      coord_fixed(
+        ratio = 1 / cos(4.65 * pi / 180),  # corrección para latitud de Bogotá
+        xlim  = c(-74.4, -73.85),
+        ylim  = c(4.5,   4.78)
+      )
     
     incProgress(0.8, detail = "Generando animación...")
     
@@ -1212,7 +1223,7 @@ observeEvent(input$generar_gif, {
     
     n_periodos <- length(unique(datos_mensuales$periodo))
     
-    gif <- gganimate::animate( animacion, width= 900, heigh= 720,  res = 150,  fps = 10,  nframes = n_periodos * 3,  rewind = FALSE,  renderer = magick_renderer() )
+    gif <- gganimate::animate( animacion, width= 1200, heigh= 1200,  res = 150,  fps = 10,  nframes = n_periodos * 3,  rewind = FALSE,  renderer = magick_renderer() )
     
     path <- tempfile(fileext = ".gif")
     magick::image_write(gif, path)
@@ -1223,7 +1234,7 @@ observeEvent(input$generar_gif, {
 
 output$gif_plot_output <- renderImage({
   path <- req(datos_gif_path())
-  list(src = path, contentType = "image/gif", width = "100%")
+  list(src = path, contentType = "image/gif", width = "100%", height="auto", style= "display:block; margin:auto; max-width:100%;")
 }, deleteFile = FALSE)
 #----LOGICA PAGINA: SCATTER -------------------
 
