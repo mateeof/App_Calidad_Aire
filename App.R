@@ -1112,7 +1112,11 @@ fondo_bogota <- tryCatch({
     obj
   } else {
     bbox_bogota <- sf::st_bbox(
+<<<<<<< HEAD
       c(xmin = -74.40, ymin = 4.50, xmax = -73.85, ymax = 4.78),
+=======
+      c(xmin = -74.40, ymin = 4.5, xmax = -73.85, ymax = 4.78), 
+>>>>>>> af8d1df194cfba78de099a2706c0206bcc419538
       crs = sf::st_crs(4326)
     )
     tiles <- maptiles::get_tiles(
@@ -1124,8 +1128,13 @@ fondo_bogota <- tryCatch({
     saveRDS(tiles, cache_path)  # ← guarda SpatRaster directamente
     tiles
   }
+<<<<<<< HEAD
 }, error = function(e) {
   message("Error cargando calles OSM: ", e$message)
+=======
+}, 
+error = function(e) {message("Error cargando calles OSM: ", e$message)
+>>>>>>> af8d1df194cfba78de099a2706c0206bcc419538
   NULL
 })
 # descargar perimetro de bogota
@@ -1168,8 +1177,12 @@ observeEvent(input$generar_gif, {
         lat = case_when(site == "Usaquen" ~ 4.710350, TRUE ~ lat),
         lon = case_when(site == "Usaquen" ~ -74.04, TRUE ~ lon)
       ) %>%
+<<<<<<< HEAD
       filter(!is.na(lat), !is.na(lon), !is.na(valor)) #%>%
       #dplyr::filter(periodo >= "2026-01")
+=======
+      filter(!is.na(lat), !is.na(lon), !is.na(valor))
+>>>>>>> af8d1df194cfba78de099a2706c0206bcc419538
     if (nrow(datos_mensuales) == 0) {
       showNotification("No hay datos válidos para generar el mapa animado.",
                        type = "warning", duration = 10)
@@ -1177,6 +1190,7 @@ observeEvent(input$generar_gif, {
     
     incProgress(0.2, detail = "Creando mapa...")
     
+<<<<<<< HEAD
     # ── Grilla de interpolación sobre Bogotá ──────────────────────────────
     grilla <- terra::rast(
       xmin = -74.40, xmax = -73.85,
@@ -1184,6 +1198,65 @@ observeEvent(input$generar_gif, {
       resolution = 0.005,
       crs = "EPSG:4326"
     )
+=======
+    mapa <- ggplot() +
+      
+      { if (!is.null(fondo_bogota))
+        annotation_raster( fondo_bogota, xmin = -74.40, xmax = -73.85, ymin = 4.40,  ymax = 4.90, interpolate = TRUE  )
+        else
+          annotate("rect",
+                   xmin = -74.25, xmax = -73.95,
+                   ymin = 4.48,   ymax = 4.82,
+                   fill = "#EEE8DA", color = "#A5B8D1"
+          ) } +
+      
+      geom_point(  data  = datos_mensuales,
+                   aes(x = lon, y = lat, color = valor),
+                   size=22,
+                   alpha = 0.03  ) +
+      geom_point(  data  = datos_mensuales,
+                   aes(x = lon, y = lat, color = valor),
+                   size=18,
+                   alpha = 0.07  ) +
+      geom_point(data = datos_mensuales,
+                 aes(x = lon, y = lat, color = valor),
+                 size = 13, alpha = 0.11) +
+      
+      geom_point(data = datos_mensuales,
+                 aes(x = lon, y = lat, color = valor),
+                 size = 9, alpha = 0.23) +
+      
+      geom_point(data = datos_mensuales,
+                 aes(x = lon, y = lat, color = valor),
+                 size = 5, alpha = 0.60) +
+      
+      geom_point(data = datos_mensuales,
+                 aes(x = lon, y = lat, color = valor),
+                 size = 2, alpha = 0.90) +
+      scale_color_gradientn(
+        colours = c("#68E045","#FFFE54","#ECBA41","#E63527","#8F3F97","#66329A"),
+        values  = scales::rescale(c(0, 50, 100, 150, 200, 300, 500)),
+        limits  = c(0, 500),
+        oob     = scales::squish,
+        guide   = "none" ) +
+      scale_size_continuous(range = c(5, 20), guide = "none") +
+      labs(
+        title    = "Evolución de la Calidad del Aire en Bogotá",
+        subtitle = "Periodo: {closest_state}"  ) +
+      
+      theme_void() +
+      theme(
+        plot.title      = element_text(face = "bold", size = 14, hjust = 0.5),
+        plot.subtitle   = element_text(size = 11, hjust = 0.5),
+        legend.position = "none",
+        plot.background = element_rect(fill = "white", color = NA)  ) +
+      
+      coord_fixed(
+        ratio = 1 / cos(4.65 * pi / 180),  # corrección para latitud de Bogotá
+        xlim  = c(-74.4, -73.85),
+        ylim  = c(4.5,   4.78)
+      )
+>>>>>>> af8d1df194cfba78de099a2706c0206bcc419538
     
     grilla_sf <- sf::st_as_sf(
       as.data.frame(terra::xyFromCell(grilla, 1:terra::ncell(grilla))),
@@ -1198,6 +1271,7 @@ observeEvent(input$generar_gif, {
     
     periodos <- sort(unique(datos_mensuales$periodo))
     
+<<<<<<< HEAD
     incProgress(0.3, detail = "Interpolando periodos...")
     
     # ── Interpolar cada periodo con IDW ───────────────────────────────────
@@ -1311,6 +1385,9 @@ observeEvent(input$generar_gif, {
     dev.off()
     
     gif_animado <- magick::image_animate(gif_frames, fps = 2)
+=======
+    gif <- gganimate::animate( animacion, width= 1200, heigh= 1200,  res = 150,  fps = 10,  nframes = n_periodos * 3,  rewind = FALSE,  renderer = magick_renderer() )
+>>>>>>> af8d1df194cfba78de099a2706c0206bcc419538
     
     path <- tempfile(fileext = ".gif")
     magick::image_write(gif_animado, path)
@@ -1321,8 +1398,12 @@ observeEvent(input$generar_gif, {
 
 output$gif_plot_output <- renderImage({
   path <- req(datos_gif_path())
+<<<<<<< HEAD
   list(src = path, contentType = "image/gif", width = "70%", height = "auto",
        style = "display:block; margin:auto; max-width:100%;")
+=======
+  list(src = path, contentType = "image/gif", width = "100%", height="auto", style= "display:block; margin:auto; max-width:100%;")
+>>>>>>> af8d1df194cfba78de099a2706c0206bcc419538
 }, deleteFile = FALSE)
 #----LOGICA PAGINA: SCATTER -------------------
 
