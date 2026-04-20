@@ -9,6 +9,7 @@ library(gganimate)
 library(magick)
 library(httr2)
 library(jsonlite)
+library(tidyterra)
 library(dplyr)
 library(lubridate)
 library(sf)
@@ -1100,30 +1101,50 @@ datos_historicos_gif <- tryCatch({
 
 # Descargar fondo
 fondo_bogota <- tryCatch({
-  #si ya existe el arichivo lo lee si no lo genera
   cache_path <- "datos/fondo_bogota.rds"
   if (file.exists(cache_path)){
-    readRDS(cache_path)
+    obj <- readRDS(cache_path)
+    # Verificar que sea SpatRaster, si no, regenerar
+    if (!inherits(obj, "SpatRaster")) {
+      file.remove(cache_path)
+      stop("Caché inválido, regenerando...")
+    }
+    obj
   } else {
     bbox_bogota <- sf::st_bbox(
-      c(xmin = -74.40, ymin = 4.5, xmax = -73.85, ymax = 4.78), 
+      c(xmin = -74.40, ymin = 4.50, xmax = -73.85, ymax = 4.78),
       crs = sf::st_crs(4326)
     )
-    tiles <- maptiles::get_tiles( x = bbox_bogota, provider = "OpenStreetMap", zoom = 11, crop= TRUE )
-    
-    fondo_path <- tempfile(fileext = ".png")
-    ragg::agg_png(fondo_path, width = 1400, height = 1120, res = 200)
-    terra::plotRGB(tiles, smooth = TRUE)
-    dev.off()
-    
-    img <- png::readPNG(fondo_path)
-    saveRDS(img, cache_path)
-    img
+    tiles <- maptiles::get_tiles(
+      x        = bbox_bogota,
+      provider = "OpenStreetMap",
+      zoom     = 11,
+      crop     = TRUE
+    )
+    saveRDS(tiles, cache_path)
+    tiles
   }
-}, 
-error = function(e) {message("Error cargando calles OSM: ", e$message)
+}, error = function(e) {
+  message("Error cargando calles OSM: ", e$message)
   NULL
 })
+# descargar perimetro de bogota
+bogota_poligono <- tryCatch({
+  cache_pol <- "datos/bogota_poligono.rds"
+  if (file.exists(cache_pol)){
+    readRDS(cache_pol)
+  } else {
+    bog    <- geodata::gadm("COL", level = 2, path = tempdir())
+    bog_sf <- sf::st_as_sf(bog)
+    bogota <- bog_sf[bog_sf$NAME_2 == "Bogotá D.C.", ]
+    saveRDS(bogota, cache_pol)
+    bogota
+  }
+}, error = function(e) {
+  message("Error descargando perímetro: ", e$message)
+  NULL
+})
+
 # Botón dinámico
 output$control_gif_ui <- renderUI({
   actionButton("generar_gif", "Generar GIF",
@@ -1135,7 +1156,7 @@ observeEvent(input$generar_gif, {
   
   withProgress(message = "Construyendo mapa histórico...", value = 0, {
     
-    incProgress(0.2, detail = "Leyendo datos historicos...")
+    incProgress(0.1, detail = "Leyendo datos historicos...")
     
     #validar que existan datos precalculados
     if(is.null(datos_historicos_gif) || nrow(datos_historicos_gif) == 0 ){
@@ -1147,86 +1168,152 @@ observeEvent(input$generar_gif, {
         lat = case_when(site == "Usaquen" ~ 4.710350, TRUE ~ lat),
         lon = case_when(site == "Usaquen" ~ -74.04, TRUE ~ lon)
       ) %>%
-      filter(!is.na(lat), !is.na(lon), !is.na(valor))
+      filter(!is.na(lat), !is.na(lon), !is.na(valor)) #%>%
+      #dplyr::filter(periodo >= "2026-01")
     if (nrow(datos_mensuales) == 0) {
       showNotification("No hay datos válidos para generar el mapa animado.",
                        type = "warning", duration = 10)
       return() }
     
-    incProgress(0.6, detail = "Creando mapa...")
+    incProgress(0.2, detail = "Creando mapa...")
+  
+    # ── Grilla de interpolación sobre Bogotá ──────────────────────────────
+    grilla <- terra::rast(
+      xmin = -74.40, xmax = -73.85,
+      ymin =  4.50,  ymax =  4.78,
+      resolution = 0.005,
+      crs = "EPSG:4326"
+    )
     
-    mapa <- ggplot() +
-      
-      { if (!is.null(fondo_bogota))
-        annotation_raster( fondo_bogota, xmin = -74.40, xmax = -73.85, ymin = 4.40,  ymax = 4.90, interpolate = TRUE  )
-        else
-          annotate("rect",
-                   xmin = -74.25, xmax = -73.95,
-                   ymin = 4.48,   ymax = 4.82,
-                   fill = "#EEE8DA", color = "#A5B8D1"
-          ) } +
-      
-      geom_point(  data  = datos_mensuales,
-                   aes(x = lon, y = lat, color = valor),
-                   size=22,
-                   alpha = 0.03  ) +
-      geom_point(  data  = datos_mensuales,
-                   aes(x = lon, y = lat, color = valor),
-                   size=18,
-                   alpha = 0.07  ) +
-      geom_point(data = datos_mensuales,
-                 aes(x = lon, y = lat, color = valor),
-                 size = 13, alpha = 0.11) +
-      
-      geom_point(data = datos_mensuales,
-                 aes(x = lon, y = lat, color = valor),
-                 size = 9, alpha = 0.23) +
-      
-      geom_point(data = datos_mensuales,
-                 aes(x = lon, y = lat, color = valor),
-                 size = 5, alpha = 0.60) +
-      
-      geom_point(data = datos_mensuales,
-                 aes(x = lon, y = lat, color = valor),
-                 size = 2, alpha = 0.90) +
-      scale_color_gradientn(
-        colours = c("#68E045","#FFFE54","#ECBA41","#E63527","#8F3F97","#66329A"),
-        values  = scales::rescale(c(0, 50, 100, 150, 200, 300, 500)),
-        limits  = c(0, 500),
-        oob     = scales::squish,
-        guide   = "none" ) +
-      scale_size_continuous(range = c(5, 20), guide = "none") +
-      labs(
-        title    = "Evolución de la Calidad del Aire en Bogotá",
-        subtitle = "Periodo: {closest_state}"  ) +
-      
-      theme_void() +
-      theme(
-        plot.title      = element_text(face = "bold", size = 14, hjust = 0.5),
-        plot.subtitle   = element_text(size = 11, hjust = 0.5),
-        legend.position = "none",
-        plot.background = element_rect(fill = "white", color = NA)  ) +
-      
-      coord_fixed(
-        ratio = 1 / cos(4.65 * pi / 180),  # corrección para latitud de Bogotá
-        xlim  = c(-74.4, -73.85),
-        ylim  = c(4.5,   4.78)
-      )
+    grilla_sf <- sf::st_as_sf(
+      as.data.frame(terra::xyFromCell(grilla, 1:terra::ncell(grilla))),
+      coords = c("x", "y"),
+      crs = 4326
+    )
+    #convertir poligono a SpatVector para el recorte
     
-    incProgress(0.8, detail = "Generando animación...")
+    bogota_vect <- if (!is.null(bogota_poligono)) {
+      terra::vect(bogota_poligono)
+    } else NULL
     
-    animacion <- mapa +
-      transition_states( periodo, transition_length = 0, state_length = 1, wrap              = TRUE ) +
-      ease_aes("cubic-in-out") +
-      enter_fade(alpha = 0.3) +
-      exit_fade(alpha = 0.3)
+    periodos <- sort(unique(datos_mensuales$periodo))
     
-    n_periodos <- length(unique(datos_mensuales$periodo))
+    incProgress(0.3, detail = "Interpolando periodos...")
     
-    gif <- gganimate::animate( animacion, width= 1200, heigh= 1200,  res = 150,  fps = 10,  nframes = n_periodos * 3,  rewind = FALSE,  renderer = magick_renderer() )
+    # ── Interpolar cada periodo con IDW ───────────────────────────────────
+    
+    icono_img  <- png::readPNG("www/broadcasting.png")
+    icono_grob <- grid::rasterGrob(icono_img)
+    frames <- lapply(seq_along(periodos), function(i) {
+      
+      p <- periodos[i]
+      df_p <- datos_mensuales %>% filter(periodo == p)
+      
+      # Necesitamos al menos 2 puntos para interpolar
+      if (nrow(df_p) < 2) return(NULL)
+      
+      puntos_sf <- sf::st_as_sf(df_p, coords = c("lon", "lat"), crs = 4326)
+      
+      # IDW
+      idw_result <- tryCatch({
+        gstat::idw(formula = valor ~ 1,
+                   locations = puntos_sf,
+                   newdata   = grilla_sf,
+                   idp       = 2)
+      }, error = function(e) NULL)
+      
+      if (is.null(idw_result)) return(NULL)
+      
+      # Raster con resultado
+      r <- grilla
+      terra::values(r) <- idw_result$var1.pred
+      ## recortar perimetro de bogota
+      if (!is.null(bogota_vect)) {
+        r <- terra::mask(r, bogota_vect)
+      }
+      # convertir a df 
+      df_plot <- as.data.frame(r, xy = TRUE, na.rm = TRUE)
+      names(df_plot) <- c("x", "y", "valor")
+      
+      if (nrow(df_plot) == 0) return(NULL)
+      
+      df_plot <- as.data.frame(r, xy = TRUE)
+      names(df_plot) <- c("x", "y", "valor")
+      
+      # Frame del mapa
+      ggplot() +
+        
+        # Fondo del mapa
+        { if (!is.null(fondo_bogota))
+          tidyterra::geom_spatraster_rgb(data = fondo_bogota)
+          else
+            annotate("rect", xmin = -74.40, xmax = -73.85,
+                     ymin = 4.50, ymax = 4.78, fill = "#EEE8DA")
+        } +
+        
+        # Mapa de calor interpolado
+        geom_raster(data = df_plot,
+                    aes(x = x, y = y, fill = valor),
+                    alpha = 0.70) +
+      
+        # icono de estaciones encima
+        purrr::map(seq_len(nrow(df_p)), function(j) {
+          annotation_custom(
+            grob = icono_grob,
+            xmin = df_p$lon[j] - 0.008,
+            xmax = df_p$lon[j] + 0.008,
+            ymin = df_p$lat[j] - 0.008,
+            ymax = df_p$lat[j] + 0.008
+          )
+        }) +
+        
+        scale_fill_gradientn(
+          colours = c("#68E045","#FFFE54","#ECBA41","#E63527","#8F3F97","#66329A"),
+          values  = scales::rescale(c(0, 50, 100, 150, 200, 300, 500)),
+          limits  = c(0, 500),
+          oob     = scales::squish,
+          name    = "IBOCA"
+        ) +
+        
+        coord_sf(
+          xlim = c(-74.28, -73.98),
+          ylim = c(4.48,   4.82),
+          expand = FALSE
+        ) + 
+        
+        labs(
+          title    = "Evolución de la Calidad del Aire en Bogotá",
+          subtitle = paste("Periodo:", p)
+        ) +
+        theme_void() +
+        theme(
+          plot.title      = element_text(face = "bold", size = 14, hjust = 0.5),
+          plot.subtitle   = element_text(size = 11, hjust = 0.5),
+          plot.background = element_rect(fill = "white", color = NA),
+          legend.position = "none",
+          plot.margin     = margin(5, 5, 5, 5)
+        )
+    })
+    
+    # Eliminar frames nulos
+    frames <- Filter(Negate(is.null), frames)
+    
+    if (length(frames) == 0) {
+      showNotification("No se pudieron generar frames para el GIF.", type = "error")
+      return()
+    }
+    
+    incProgress(0.8, detail = "Compilando GIF...")
+    
+    # ── Compilar GIF con magick ───────────────────────────────────────────
+    gif_frames <- magick::image_graph(width = 800, height = 700, res = 150)
+    lapply(frames, print)
+    dev.off()
+    
+    gif_animado <- magick::image_animate(gif_frames, fps = 2)
     
     path <- tempfile(fileext = ".gif")
-    magick::image_write(gif, path)
+    magick::image_write(gif_animado, path)
     datos_gif_path(path)
     
   })
@@ -1234,7 +1321,8 @@ observeEvent(input$generar_gif, {
 
 output$gif_plot_output <- renderImage({
   path <- req(datos_gif_path())
-  list(src = path, contentType = "image/gif", width = "100%", height="auto", style= "display:block; margin:auto; max-width:100%;")
+  list(src = path, contentType = "image/gif", width = "70%", height = "auto",
+       style = "display:block; margin:auto; max-width:100%;")
 }, deleteFile = FALSE)
 #----LOGICA PAGINA: SCATTER -------------------
 
