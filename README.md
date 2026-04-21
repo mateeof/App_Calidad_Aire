@@ -97,32 +97,29 @@ Puedes experimentar sin romper nada del proyecto principal.
 
 ---
 
-## 💾 3. Guardar cambios (Commit)
+## 💾 3. Guardar cambios (Commit) y subir (Push)
 
 ### 🔹 En RStudio
 
-* Stage archivos
-* Click en Commit
-* Escribir mensaje
+1. En la pestaña **Git**, ubica el botón al lado de la flecha azul (Pull) llamado
+   **“Commit (Commit pending changes)”** y haz clic ahí.
+
+2. Se abrirá una ventana donde debes:
+
+   * Seleccionar (✔️) los archivos modificados que quieres subir (*Stage*)
+   * Revisar los cambios si es necesario
+
+3. En el campo de mensaje, escribe una descripción clara de los cambios realizados.
+
+4. Haz clic en el botón **Commit**.
+
+5. Luego, vuelve a la ventana principal y haz clic en la flecha verde (**Push**) para subir los cambios al repositorio.
 
 ### 🔹 En terminal
 
 ```bash
 git add .
 git commit -m "Descripción de los cambios"
-```
-
----
-
-## 🚀 4. Subir cambios (Push)
-
-### 🔹 En RStudio
-
-* Click en **Push (flecha verde)**
-
-### 🔹 En terminal
-
-```bash
 git push origin nombre_de_tu_rama
 ```
 
