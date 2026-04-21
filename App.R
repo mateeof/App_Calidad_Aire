@@ -409,7 +409,6 @@ server <- function (input, output, session){
   # Lógica para botones de "Volver" 
   observeEvent(input$volver_teoria,{nav_select("paginas_app","teoria")})
   observeEvent(input$volver_teoria2,{nav_select("paginas_app","teoria")})
-  
   observeEvent(input$volver_inicio, { nav_select("paginas_app", "inicio") })
   observeEvent(input$volver_inicio2, { nav_select("paginas_app", "inicio") })
   observeEvent(input$volver_inicio3, { nav_select("paginas_app", "inicio") })
@@ -1035,7 +1034,7 @@ observeEvent(input$btn_analizar_cor, {
     api_key <- Sys.getenv("GEMINI_API_KEY")
     
     # URL MODIFICADA (Usando gemini-pro que es la ruta más compatible)
-    url_ia <- "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    url_ia <- "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     
     # Construcción manual del cuerpo para asegurar compatibilidad total
     cuerpo <- list(
