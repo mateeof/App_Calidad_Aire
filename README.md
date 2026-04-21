@@ -1,45 +1,248 @@
-#  Monitoreo de Calidad del Aire - Bogotá (RMCAB)
+# 🌫️ Monitoreo de Calidad del Aire - Bogotá (RMCAB)
 
-Esta es una aplicación interactiva desarrollada en **R Shiny** para la visualización y análisis técnico de los datos de la Red de Monitoreo de Calidad del Aire de Bogotá (RMCAB). El proyecto integra herramientas avanzadas de análisis ambiental y está diseñado para facilitar la interpretación de contaminantes en la ciudad.
+Aplicación interactiva desarrollada en **R Shiny** para la visualización y análisis técnico de datos de la Red de Monitoreo de Calidad del Aire de Bogotá (RMCAB).
 
-##  Estructura del Proyecto
+El objetivo es facilitar la interpretación de contaminantes mediante herramientas de análisis ambiental y visualización avanzada.
 
-La aplicación sigue una arquitectura modular para facilitar el mantenimiento:
+---
 
-* **`app.R`**: El archivo principal que ejecuta la aplicación.
-* **`functions/`**: Scripts con la lógica de descarga de datos (Secretaría de Ambiente) y procesamiento matemático.
-* **`modules/`**: Archivos exclusivos para cada pestaña de visualización.
-* **`renv.lock`**: Archivo de control de versiones de las librerías para asegurar que todos trabajemos con el mismo entorno.
+# 🧱 Estructura del Proyecto
 
-##  Funcionalidades Actuales
+* **app.R** → Punto de entrada de la aplicación
+* **functions/** → Lógica de descarga y procesamiento de datos
+* **modules/** → Componentes de cada pestaña
+* **renv.lock** → Control de versiones de librerías (CRÍTICO)
 
-* 📍 **Mapa Interactivo**: Ubicación de estaciones con el contaminante predominante en las últimas 24h.
-* 📈 **Time Variation**: Análisis temporal de las concentraciones.
-* 🌹 **Pollution Rose**: Relación entre la dirección del viento y la concentración de contaminantes.
-* 📉 **Corplot**: Matriz de correlación entre variables ambientales.
-* 🎬 **Mapa Animado (En desarrollo)**: Visualización temporal de la dispersión de contaminantes.
+---
 
-##  Instalación y Configuración
+# ⚙️ Instalación y Configuración
 
-Si es tu primera vez colaborando, sigue estos pasos para clonar el proyecto y configurar tu entorno:
+## 1. Clonar el repositorio
 
-1.  **Clonar el repositorio:**
-    Desde RStudio: `File > New Project > Version Control > Git` y pega la URL de este repo.
+### 🔹 Opción 1: RStudio
 
-2.  **Restaurar el entorno (Librerías):**
-    Este proyecto utiliza `renv`. Para instalar todas las dependencias necesarias con las versiones exactas, ejecuta en la consola de R:
-    ```r
-    install.packages("renv")
-    renv::restore()
-    ```
+* File → New Project
+* Version Control → Git
+* Pegar la URL del repositorio (https://github.com/mateeof/App_Calidad_Aire.git)
 
-##  Guía de Colaboración
+### 🔹 Opción 2: Terminal
 
-Para mantener el código organizado y evitar conflictos, seguimos este flujo:
+```bash
+git clone https://github.com/mateeof/App_Calidad_Aire.git
+```
 
-1.  **Pull**: Antes de empezar, descarga los últimos cambios con la **flecha azul**.
-2.  **Branch**: Crea una rama nueva para tus cambios (ej: `feature-mejora-mapa`). **Nunca** trabajes directamente sobre `main`.
-3.  **Commit & Push**: Sube tus cambios con un mensaje descriptivo.
-4.  **Pull Request**: Abre un PR en GitHub para que revisemos los cambios antes de integrarlos a la versión final.
+---
+
+## 2. Configurar el entorno
+
+```r
+install.packages("renv")
+renv::restore()
+```
+
+---
+
+# 📦 Importancia de `renv.lock`
+
+El archivo `renv.lock` asegura que todos trabajen con **las mismas versiones de librerías**.
+
+* ✅ Garantiza reproducibilidad
+* ❌ Sin esto, el proyecto puede fallar en otras máquinas
+
+---
+
+# 🧪 Flujo de Trabajo con Git
+
+👉 Puedes usar **RStudio o la terminal**, ambos hacen exactamente lo mismo.
+
+---
+
+## 🧭 1. Traer cambios (Pull)
+
+### 🔹 En RStudio
+
+* Click en **Pull (flecha azul)**
+
+### 🔹 En terminal
+
+```bash
+git pull origin main
+```
+
+## 🌿 2. Crear una rama (Branch)
+
+⚠️ Nunca trabajar directamente en `main`
+
+### 🔹 En terminal
+
+```bash
+git checkout -b nombre_de_tu_rama
+```
+
+### 🔹 En RStudio
+
+* Ir a pestaña Git
+* New Branch
+* Escribir: `nombre_de_tu_rama`
+
+👉 Esto crea una copia de `main` donde puedes trabajar sin afectar el proyecto principal.
+
+
+## 🧠 ¿Cómo funcionan las ramas?
+
+* `main` → versión estable
+* `nombre_de_tu_rama` → tu espacio de trabajo
+
+Puedes experimentar sin romper nada del proyecto principal.
+
+---
+
+## 💾 3. Guardar cambios (Commit)
+
+### 🔹 En RStudio
+
+* Stage archivos
+* Click en Commit
+* Escribir mensaje
+
+### 🔹 En terminal
+
+```bash
+git add .
+git commit -m "Descripción de los cambios"
+```
+
+---
+
+## 🚀 4. Subir cambios (Push)
+
+### 🔹 En RStudio
+
+* Click en **Push (flecha verde)**
+
+### 🔹 En terminal
+
+```bash
+git push origin nombre_de_tu_rama
+```
+
+# ⚠️ Si agregas librerías (MUY IMPORTANTE)
+
+Cada vez que instales una nueva librería, **debes actualizar el archivo `renv.lock`**.
+
+👉 Si no haces esto, otras personas del equipo pueden tener errores al ejecutar el proyecto, porque no tendrán instaladas las mismas dependencias.
+
+---
+
+## 🔧 Pasos obligatorios
+
+```r
+install.packages("nuevo_paquete")
+renv::snapshot()
+```
+
+Luego guarda los cambios en Git:
+
+```bash
+git add renv.lock
+git commit -m "Actualiza dependencias"
+```
+## 🧠 ¿Por qué es tan importante?
+
+* `renv.lock` guarda las versiones exactas de las librerías
+* Permite que el proyecto funcione igual en todos los equipos
+* Evita errores como “a mí sí me corre”
+
+## 🚨 Regla clave del proyecto
+
+👉 **Si agregas una librería y no actualizas `renv.lock`, puedes romper el entorno de los demás.**
+
+## 🎯 Buen hábito
+
+Cada vez que veas un `install.packages()` en tus cambios, pregúntate:
+✔️ ¿ya hice `renv::snapshot()`?
+
+---
+
+# 🔄 Flujo completo de trabajo
+
+1. **Pull (Actualizar tu proyecto)**
+   Trae los últimos cambios desde `main` para trabajar siempre sobre la versión más reciente.
+
+2. **Crear rama (Tu espacio de trabajo)**
+   Crea una rama con el nombre `nombre_de_tu_rama`.
+   👉 No necesitas crear una rama cada vez que abras el proyecto.
+Si ya tienes una rama creada, simplemente vuelves a ella y continúas trabajando ahí hasta terminar esa tarea.
+
+3. **Hacer cambios (Desarrollo)**
+   Trabaja en tu rama: agrega funcionalidades, corrige errores o mejora el código sin afectar `main`.
+
+4. **Commit (Guardar cambios)**
+   Registra tus cambios con un mensaje claro y descriptivo.
+   👉 Esto permite que el equipo entienda qué hiciste y por qué.
+
+5. **Push (Subir cambios)**
+   Envía tu rama al repositorio en GitHub para que otros puedan verla.
+
+6. **Pull Request (Revisión y aprobación)**
+   Abres un Pull Request en GitHub.
+   👉 El líder del equipo revisa los cambios y decide si se integran a `main`.
+
+
+
+# 📊 Funcionalidades de la Aplicación
+
+La aplicación cuenta con diferentes módulos diseñados para analizar la calidad del aire desde múltiples perspectivas:
+
+---
+
+### 📍 Mapa Interactivo
+
+Visualiza la ubicación de las estaciones de monitoreo en Bogotá.
+Cada punto muestra el **contaminante predominante en las últimas 24 horas**, permitiendo identificar rápidamente las zonas más afectadas.
+
+👉 Ideal para tener una visión espacial del estado actual del aire en la ciudad.
+
+---
+
+### 📈 Time Variation
+
+Permite analizar cómo cambian las concentraciones de contaminantes a lo largo del tiempo.
+
+👉 Puedes observar tendencias, picos de contaminación y patrones diarios o horarios.
+
+---
+
+### 🌹 Pollution Rose
+
+Relaciona la **dirección del viento** con la concentración de contaminantes.
+
+👉 Ayuda a entender hacia dónde se desplazan los contaminantes y posibles fuentes de emisión.
+
+---
+
+### 📉 Corplot
+
+Muestra una **matriz de correlación** entre variables ambientales (contaminantes, clima, etc.).
+
+👉 Permite identificar relaciones entre variables, como por ejemplo:
+
+* Temperatura vs contaminantes
+* Viento vs dispersión
+
+---
+
+### 🎬 Mapa Animado *(En desarrollo)*
+
+Visualización dinámica que muestra cómo evoluciona la contaminación en el tiempo sobre el mapa.
+
+👉 Permitirá analizar la **dispersión de contaminantes** de forma visual e intuitiva.
+
+---
+
+
+# 🎯 Objetivo
+
+Crear una herramienta robusta, reproducible y colaborativa para analizar la calidad del aire en Bogotá.
 
 ---
