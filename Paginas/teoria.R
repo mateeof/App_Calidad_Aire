@@ -3,9 +3,10 @@
 ui_teoria <- div(
   class = "container-fluid", # Ocupa todo el ancho
   style = "padding: 40px; font-family: 'Manrope', sans-serif;",
-  
+
   # --- SECCIÓN 1: BIENVENIDA Y CONTEXTO ---
   div(class = "row mb-5 text-center",
+      style="margin-top:50px;",
       div(class = "col-12",
           h1("Fundamentos y Monitoreo del Aire en Bogotá", 
              style = "font-weight: 800; color: #2E8B57; font-size: 3rem;"),
@@ -225,73 +226,4 @@ ui_teoria <- div(
       ),
     )
   ),
-  
-  br(),hr(),br(),
-  # --- SECCIÓN: GUÍA DE USUARIO ---
-  h3("2. ¿Cómo dominar la Herramienta?", class = "mb-4 mt-5", 
-     style = "font-weight: 700; border-left: 5px solid #2E8B57; padding-left: 15px;"),
-  
-  div(class = "row g-4 justify-content-center",
-      
-      # Paso 1: Configurar
-      div(class = "col-md-3",
-          card(
-            style = "border: none; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); transition: transform 0.3s ease;",
-            class = "h-100 text-center p-4 card-hover",
-            div(style = "background: #E8F5E9; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;",
-                bs_icon("sliders", size = "1.8rem", class = "text-success")),
-            h5(strong("1. Configura"), style = "color: #2E8B57;"),
-            p("Define tu zona de interés, el contaminante y el rango de fechas en el panel lateral.", 
-              style = "font-size: 0.9rem; color: #666;")
-          )
-      ),
-      
-      # Paso 2: Ejecutar
-      div(class = "col-md-3",
-          card(
-            style = "border: none; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); transition: transform 0.3s ease;",
-            class = "h-100 text-center p-4 card-hover",
-            div(style = "background: #E3F2FD; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;",
-                bs_icon("play-circle-fill", size = "1.8rem", class = "text-primary")),
-            h5(strong("2. Genera"), style = "color: #0d6efd;"),
-            p("Haz clic en 'Generar Gráfica'. La app conectará con la RMCAB para obtener datos en tiempo real.", 
-              style = "font-size: 0.9rem; color: #666;")
-          )
-      ),
-      
-      # Paso 3: Análisis IA
-      div(class = "col-md-3",
-          card(
-            style = "border: none; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); transition: transform 0.3s ease;",
-            class = "h-100 text-center p-4 card-hover",
-            div(style = "background: #F3E5F5; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;",
-                bs_icon("cpu", size = "1.8rem", style = "color: #9c27b0;")),
-            h5(strong("3. Interpreta"), style = "color: #9c27b0;"),
-            p("¿Dudas con los resultados? Activa el análisis de IA para obtener una explicación científica.", 
-              style = "font-size: 0.9rem; color: #666;")
-          )
-      ),
-      
-      # Paso 4: Descubrimiento
-      div(class = "col-md-3",
-          card(
-            style = "border: none; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); transition: transform 0.3s ease;",
-            class = "h-100 text-center p-4 card-hover",
-            div(style = "background: #FFF3E0; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;",
-                bs_icon("search", size = "1.8rem", class = "text-warning")),
-            h5(strong("4. Descubre"), style = "color: #ef6c00;"),
-            p("Navega entre módulos para encontrar patrones y fuentes de emisión en la ciudad.", 
-              style = "font-size: 0.9rem; color: #666;")
-          )
-      )
-  ),
-  br(),
-  
-  # --- BOTÓN DE ENTRADA ---
-  div(class = "text-center my-5",
-      actionButton("empezar_app", "¡Explorar el Panel de Datos!", 
-                   class = "btn-success btn-lg", 
-                   style = "padding: 20px 80px; font-weight: 800; border-radius: 10px; font-size: 1.5rem; transition: 0.3s;",
-                   icon = icon("rocket"))
-  )
 )
