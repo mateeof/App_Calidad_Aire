@@ -3,7 +3,7 @@ library(shinycssloaders)
 library(bsicons)
 
 ui_scatter <- nav_panel_hidden(
-  "pagina_scatter", 
+  "pagina_scatter",style="margin-top:50px;",
   layout_sidebar(
     sidebar = sidebar(
       title = span(bs_icon("graph-up-arrow"), " Correlación Bivariada"),
@@ -76,5 +76,23 @@ ui_scatter <- nav_panel_hidden(
       ),
       style = "border-radius: 15px; border: 1px solid #EDE9FE;"
     )
-  )
+  ),
+  # CSS adicional para efectos de 'Hover'
+  tags$style(HTML("
+   #btn_analizar_scatter:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(79, 70, 229, 0.4) !important;
+      filter: brightness(1.1);
+   }
+   #volver_inicio5:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(79, 70, 229, 0.4) !important;
+      filter: brightness(1.1);
+   }
+  #generar_scatter:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(79, 70, 229, 0.4) !important;
+      filter: brightness(1.1);
+   }"
+  )),
 )

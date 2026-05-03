@@ -3,7 +3,7 @@ library(shinycssloaders)
 library(bsicons)
 
 ui_rose_pollution <- nav_panel_hidden(
-  "pagina_rosa",
+  "pagina_rosa",style="margin-top:50px;",
   layout_sidebar(
     sidebar = sidebar(
       title = span(bs_icon("compass"), " Análisis de Vientos"),
@@ -78,5 +78,23 @@ ui_rose_pollution <- nav_panel_hidden(
       ),
       style = "border-radius: 15px; border: 1px solid #E0F2FE;"
     )
-  )
+  ),
+  # CSS adicional para efectos de 'Hover'
+  tags$style(HTML("
+   #btn_analizar_rp:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(3, 105, 161, 0.4) !important;
+      filter: brightness(1.1);
+   }
+   #volver_inicio2:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(3, 105, 161, 0.4) !important;
+      filter: brightness(1.1);
+   }
+  #generar_rose:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(3, 105, 161, 0.4) !important;
+      filter: brightness(1.1);
+   }"
+  ))
 )

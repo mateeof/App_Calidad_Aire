@@ -29,6 +29,9 @@ source("Paginas/cor_plot.R")
 source("Paginas/gif_maker.R")
 source("Paginas/Scatter_plot.R")
 source("Paginas/teoria.R")
+source("Paginas/modulos_analisis.R")
+source("Paginas/estado_actual.R")
+source("Paginas/inicio.R")
 
 
 # Dataset de Estaciones (Coordenadas aproximadas RMCAB)
@@ -45,8 +48,10 @@ my_theme <- bs_theme(
   base_font = font_google("Manrope"),
   heading_font = font_google("Montserrat")
 )
-#--- UI ---
 
+
+
+#--- UI ---
 ui <- page_fillable(
   
   #Para que al darle click a los botones salga arriba de la pagina, actualiza el scroll
@@ -59,305 +64,62 @@ ui <- page_fillable(
   
   # BARRA SUPERIOR
   div(class = "d-flex justify-content-between align-items-center p-3", 
-      style = "background-color: #E0F2F1; border-bottom: 2px solid #B2DFDB;",
+      style = "background-color: #ffffff; border-bottom: 2px solid #f0f0f0; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      position:fixed;top:0;left:0;rigth:0;z-index:2000;height:70px; width:100%",
+      
       div(class="d-flex align-items-center gap-3",
-      h3("Calidad de Aire Bogotá", style = "margin: 0; color: #2E8B57; font-weight: 700;"),
-      actionLink("volver_teoria", "Ver Teoría",
-                 icon= icon("book-open"),
-                 style="color #4682b4;text-decoration:none; font-weight:600"),
-      actionLink("empezar_app2", "Ver Analisís",
-                 icon= icon("rocket"),
-                 style="color #4682b4;text-decoration:none; font-weight:600")),
+          h3("Calidad del Aire en Bogotá", style = "margin: 0 20px 0 0; color: #28a745; font-weight: 800; letter-spacing: -1px;"),
+          
+          # Botón Inicio
+          actionButton("inicio", "Inicio",
+                       icon = icon("home"),
+                       style = "background: none; border: none; color: #555; font-weight: 600; padding: 8px 15px; transition: 0.3s;"),
+          
+          # Botón Ver Teoría
+          actionButton("volver_teoria", "Aprende",
+                       icon = icon("book-open"),
+                       style = "background: #f0fdf4; border: 1px solid #dcfce7; color: #166534; font-weight: 600; border-radius: 10px; padding: 8px 20px; transition: 0.3s;"),
+          
+          # Botón Ver Análisis
+          actionButton("empezar_app2", "Analiza Datos",
+                       icon = icon("chart-simple"),
+                       style = "background: #28a745; border: none; color: white; font-weight: 600; border-radius: 10px; padding: 8px 20px; box-shadow: 0 4px 6px rgba(40, 167, 69, 0.2); transition: 0.3s;")
+      ),
       
       tags$img(src = "Logo Unal Sin Fondo.png", height = "45px")
   ),
+  # CSS para los efectos hover de la barra (añádelo a tu bloque de tags$style)
+  tags$style(HTML("
+  #inicio:hover { color: #28a745 !important; background: #f8f9fa !important; }
+  #volver_teoria:hover { background: #dcfce7 !important; transform: translateY(-2px); }
+  #empezar_app2:hover { background: #218838 !important; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(40, 167, 69, 0.3) !important; }
+")),
   
   navset_hidden(
     id = "paginas_app",
     
+    # --- PÁGINA 1: INICIO ---
+    nav_panel_hidden("inicio",ui_inicio),
+    
+    # --- PÁGINA 2: TEORIA ---
     nav_panel_hidden("teoria", ui_teoria),
     
-    # --- PÁGINA 1: INICIO ---
-    nav_panel_hidden("inicio",
-                     div(style = "width: 100%; padding: 20px;",
-                         
-                         # FILA SUPERIOR: MAPA Y BLOQUE 
-                         layout_column_wrap(
-                           width = 1/2,
-                           heights_equal = "row",
-                           
-                           card(
-                             card_header(class = "bg-light", strong("Estaciones de Monitoreo RMCAB")),
-                             leafletOutput("mapa_bogota", height = "400px")
-                           ),
-                           
-                           # BLOQUE DERECHO:
-                           card(
-                             style= "padding:20px; border-radius: 15px;",
-                             div(class= "text-center mb-3",
-                                 h4("Estado Actual de la Calidad del Aire", style= "font-weight:600")
-                                 ),
-                             div(class="d-flex justify-content-around align-items-center mb-4",
-                                 uiOutput("ica_box_ui"),
-                                 uiOutput("contaminante_ui")
-                                 ),
-                             div(class = "text-center mb-4",
-                                 actionButton("generar_estado"," Generar Estado Actual",
-                                              icon = icon("play"), class="btn-success btn-lg")
-                                 ),
-                             div(style = "background-color: #F8F9FA; padding: 15px; border-radius: 10px; border: 1px solid #eee;",
-                                 p(strong("Nota técnica:"), " Los valores corresponden al promedio de la red monitoreada el día anterior.", 
-                                   style = "font-size: 0.85rem; color: #555; text-align: center;")
-                             )
-                           )
-                         ),
-                         
-                         br(),
-                         h4("Módulos de Análisis Avanzado", style = "text-align: center; margin: 20px 0;"),
-                         
-                         # FILA INFERIOR: TARJETAS CON TEXTO/IMG Y BOTÓN ANCHO
-                         layout_column_wrap(
-                           width = 1/3,
-                           heights_equal = "row",
-                           
-                           # Tarjeta 1
-                           card(
-                             # Estilo de la card: Bordes redondeados y sombra sutil para que flote sobre el fondo #f5f5f5
-                             style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
-                             
-                             card_header(
-                               div(class = "d-flex align-items-center",
-                                   bs_icon("clock-history", size = "1.5rem", class = "me-2"),
-                                   span("Dinámica Temporal", style = "font-weight: 700; font-size: 1.25rem;")
-                               ),
-                               # Cambiamos el azul primario por un Slate-Blue más profesional
-                               style = "background-color: #2c3e50; color: white; border: none; padding: 15px;"
-                             ),
-                             
-                             card_body(
-                               style = "padding: 20px; background-color: white;",
-                               
-                               # Texto superior
-                               div(style = "min-height: 90px; text-align: center;",
-                                   p("¿En qué momentos se alcanzan los picos críticos de polución?", 
-                                     style = "font-size: 1.1rem; color: #2E8B57; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
-                                   p("Identifica ciclos horarios y patrones semanales mediante modelos de variación estadística avanzada.", 
-                                     style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")
-                               ),
-                               
-                               # Contenedor de Imagen con efecto de marco
-                               div(class = "text-center my-3",
-                                   style = "border-radius: 10px; padding: 10px; border: 1px solid #edf2f7;",
-                                   tags$img(
-                                     src = "timeVariation.png", 
-                                     style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));"
-                                   )
-                               )
-                             ),
-                             
-                             card_footer(
-                               style = "background: white; border-top: 1px solid #f1f1f1; padding: 15px;",
-                               # El botón ahora es sólido para invitar a la acción (Call to Action)
-                               actionButton(
-                                 "ir_analisis", 
-                                 "Explorar Análisis Temporal", 
-                                 icon = bs_icon("arrow-right-circle"),
-                                 style = "background-color: #1A73E8; color: white; border: none; width: 100%; font-weight: 700; padding: 12px; border-radius: 8px; transition: 0.3s;",
-                                 class = "btn-hover-effect" # Puedes añadir una clase para efectos CSS
-                               )
-                             )
-                           ),
-                           
-                           # Tarjeta 2
-                           card(
-                             # Mantenemos el radio de 15px y la sombra suave para consistencia visual
-                             style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
-                             
-                             card_header(
-                               div(class = "d-flex align-items-center",
-                                   bs_icon("compass", size = "1.5rem", class = "me-2"),
-                                   span("Origen y Dispersión", style = "font-weight: 700; font-size: 1.25rem;")
-                               ),
-                               # Usamos un azul profundo pero vibrante para el tema de vientos
-                               style = "background-color: #0369A1; color: white; border: none; padding: 15px;"
-                             ),
-                             
-                             card_body(
-                               style = "padding: 20px; background-color: white;",
-                               
-                               # Texto superior: Pregunta gancho
-                               div(style = "min-height: 90px; text-align: center;",
-                                   p("¿Desde qué dirección provienen las masas de aire más contaminadas?", 
-                                     style = "font-size: 1.1rem; color: #0284C7; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
-                                   p("Cruza datos de velocidad y dirección del viento para localizar fuentes de emisión potenciales en la ciudad.", 
-                                     style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")
-                               ),
-                               
-                               # Contenedor de Imagen con marco celeste suave
-                               div(class = "text-center my-3",
-                                   style = "border-radius: 10px; padding: 10px; border: 1px solid #E0F2FE;",
-                                   tags$img(
-                                     src = "pollutionRose.png", 
-                                     style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));"
-                                   )
-                               )
-                             ),
-                             
-                             card_footer(
-                               style = "background: white; border-top: 1px solid #f1f1f1; padding: 15px;",
-                               # Botón Call to Action unificado con el estilo de la app
-                               actionButton(
-                                 "ir_rosa", 
-                                 "Analizar Procedencia", 
-                                 icon = bs_icon("wind"),
-                                 style = "background-color: #0369A1; color: white; border: none; width: 100%; font-weight: 700; padding: 12px; border-radius: 8px;",
-                                 class = "btn-hover-effect"
-                               )
-                             )
-                           ),
-                           
-                           # Tarjeta 3
-                           card(
-                             # Mantenemos el estándar de 15px de radio y sombra suave para consistencia
-                             style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
-                             
-                             card_header(
-                               div(class = "d-flex align-items-center",
-                                   bs_icon("grid-3x3-gap", size = "1.5rem", class = "me-2"),
-                                   span("Relación Multivariada", style = "font-weight: 700; font-size: 1.25rem;")
-                               ),
-                               # Usamos un tono pizarra oscuro para denotar seriedad analítica
-                               style = "background-color: #34495e; color: white; border: none; padding: 15px;"
-                             ),
-                             
-                             card_body(
-                               style = "padding: 20px; background-color: white;",
-                               
-                               # Texto superior
-                               div(style = "min-height: 90px; text-align: center;",
-                                   p("¿Cómo influye el clima en la concentración de partículas?", 
-                                     style = "font-size: 1.1rem; color: #2c3e50; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
-                                   p("Analiza la dependencia lineal entre variables meteorológicas y contaminantes críticos mediante matrices de Pearson.", 
-                                     style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")
-                               ),
-                               
-                               # Contenedor de Imagen con marco gris técnico
-                               div(class = "text-center my-3",
-                                   style = "border-radius: 10px; padding: 10px; border: 1px solid #e2e8f0;",
-                                   tags$img(
-                                     src = "correlation.png", 
-                                     style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));"
-                                   )
-                               )
-                             ),
-                             
-                             card_footer(
-                               style = "background: white; border-top: 1px solid #f1f1f1; padding: 15px;",
-                               # Botón sólido para mantener la jerarquía de botones principales
-                               actionButton(
-                                 "ir_cor", 
-                                 "Visualizar Matriz", 
-                                 icon = bs_icon("table"),
-                                 style = "background-color: #34495e; color: white; border: none; width: 100%; font-weight: 700; padding: 12px; border-radius: 8px;",
-                                 class = "btn-hover-effect"
-                               )
-                             )
-                           ),
-                           # Tarjeta 4: Mapa Animado (GIF)
-                           card(
-                             style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
-                      
-                             card_header( div(class = "d-flex align-items-center", bs_icon("map", size = "1.5rem", class = "me-2"), span("Evolución Espacial", style = "font-weight: 700; font-size: 1.25rem;") ),
-                               style = "background-color: #F9A825; color: black; border: none; padding: 15px;" ),
-                          
-                             card_body(style = "padding: 20px; background-color: white;",
-                               div(style = "min-height: 90px; text-align: center;",
-                                   p("¿Cómo ha cambiado la contaminación con el paso del tiempo?", 
-                                     style = "font-size: 1.1rem; color: #2c3e50; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
-                                   p("Genera un mapa animado donde a partir del IBOCA se logra identificar la evolución mensual de los niveles de contaminación en la ciudad.", 
-                                     style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")),
-                               
-                               div(class = "text-center my-3",
-                                   style = "border-radius: 10px; padding: 10px; border: 1px solid #e2e8f0;",
-                                   tags$img(
-                                     src = "MapaGif.png", 
-                                     style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));"   )
-                               ) ),
-                             
-                             card_footer(
-                               style = "background: white; border-top: 1px solid #f1f1f1; padding: 15px;",
-                               actionButton( "ir_gif", "Generar Mapa Animado", icon = bs_icon("play-circle"), style = "background-color: #F9A825; color: black; border: none; width: 100%; font-weight: 700; padding: 12px; border-radius: 8px;",  class = "btn-hover-effect"
-                               ) ) ),
-                           # Tarjeta 5:Correlacion entre dos contaminantes
-                           card(
-                             # Consistencia total: radio de 15px, sin borde y sombra sutil
-                             style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
-                             
-                             card_header(
-                               div(class = "d-flex align-items-center",
-                                   bs_icon("graph-up-arrow", size = "1.5rem", class = "me-2"),
-                                   span("Correlación Bivariada", style = "font-weight: 700; font-size: 1.25rem;")
-                               ),
-                               # Usamos un color Índigo/Púrpura Profundo para análisis de variables
-                               style = "background-color: #4F46E5; color: white; border: none; padding: 15px;"
-                             ),
-                             
-                             card_body(
-                               style = "padding: 20px; background-color: white;",
-                               
-                               # Texto superior: Pregunta gancho
-                               div(style = "min-height: 90px; text-align: center;",
-                                   p("¿Cómo se relacionan dos contaminantes entre sí?", 
-                                     style = "font-size: 1.1rem; color: #4338CA; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
-                                   p("Explora la dependencia estadística mediante diagramas de dispersión y detecta patrones de emisión simultánea.", 
-                                     style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")
-                               ),
-                               
-                               # Contenedor de Imagen con marco púrpura muy tenue
-                               div(class = "text-center my-3",
-                                   style = "border-radius: 10px; padding: 10px; border: 1px solid #EDE9FE;",
-                                   tags$img(
-                                     src = "CorrelacionBivariada.png", 
-                                     style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));"
-                                   )
-                               )
-                             ),
-                             
-                             card_footer(
-                               style = "background: white; border-top: 1px solid #f1f1f1; padding: 15px;",
-                               # Botón sólido unificado
-                               actionButton(
-                                 "ir_scatter", 
-                                 "Analizar Dispersión", 
-                                 icon = bs_icon("activity"),
-                                 style = "background-color: #4F46E5; color: white; border: none; width: 100%; font-weight: 700; padding: 12px; border-radius: 8px;",
-                                 class = "btn-hover-effect"
-                               )
-                             )
-                           )
-                           
-                         ),
-                         br(),
-                         
-                         # --- BOTÓN DE ENTRADA ---
-                         div(class = "text-center my-5",
-                             actionButton("volver_teoria2", "Ver teoria", 
-                                          class = "btn-success btn-lg", 
-                                          style = "padding: 20px 80px; font-weight: 800; border-radius: 10px; font-size: 1.5rem; transition: 0.3s;",
-                                          icon = icon("book-open"))
-                         )
-                     )
-    ),
+    # --- PÁGINA 3: MODULOS ANALISIS ---
+    nav_panel_hidden("analisis",ui_modulos_analisis),
     
     # 1. REFERENCIA A TUS UI EXTERNAS
     # Estos IDs deben coincidir con los que usas en nav_select en el server
-    nav_panel_hidden("pagina_analisis", ui_time_variation),
+    nav_panel_hidden("pagina_time_variation", ui_time_variation),
     nav_panel_hidden("pagina_rosa", ui_rose_pollution),
     nav_panel_hidden("pagina_cor", ui_corplot),
     nav_panel_hidden("pagina_gif", ui_gif_maker),
-    nav_panel_hidden("pagina_scatter", ui_scatter)
+    nav_panel_hidden("pagina_scatter", ui_scatter),
+    nav_panel_hidden("pagina_estado_actual", ui_estado_actual)
   ),
-  # --- FOOTER (AÑADIR AL FINAL DE TU UI) ---
+  
+  
+
+# --- FOOTER  ---
   tags$footer(
     style = "background-color: #f8f9fa; padding: 30px 0; border-top: 1px solid #dee2e6; margin-top: 20px;",
     div(class = "container",
@@ -385,36 +147,49 @@ ui <- page_fillable(
   )
 )
 
+
+
+
+# ---- SERVIDOR  ----
+
 server <- function (input, output, session){
 
   # --- NAVEGACIÓN ---
   
-  observeEvent(input$empezar_app,{nav_select("paginas_app","inicio")
+  observeEvent(input$ir_modulo_analisis,{nav_select("paginas_app","analisis")})
+  observeEvent(input$ir_teoria,{nav_select("paginas_app","teoria")})
+  
+  observeEvent(input$empezar_app,{nav_select("paginas_app","analisis")
     session$sendCustomMessage("scroll-top", list())})
-  observeEvent(input$empezar_app2,{nav_select("paginas_app","inicio")
+  observeEvent(input$empezar_app2,{nav_select("paginas_app","analisis")
     session$sendCustomMessage("scroll-top", list())})
   
   
   
   # El ID "paginas_app" es el del navset_hidden. 
   # El segundo argumento es el valor del nav_panel_hidden definido arriba.
-  observeEvent(input$ir_analisis,{nav_select("paginas_app","pagina_analisis")})
   
-  observeEvent(input$ir_analisis, { nav_select("paginas_app", "pagina_analisis") })
+  
+  observeEvent(input$ir_time_variation, { nav_select("paginas_app", "pagina_time_variation") })
   observeEvent(input$ir_rosa, { nav_select("paginas_app", "pagina_rosa") })
   observeEvent(input$ir_cor, { nav_select("paginas_app", "pagina_cor") })
   observeEvent(input$ir_gif, { nav_select("paginas_app", "pagina_gif") })
   observeEvent(input$ir_scatter,{nav_select("paginas_app", "pagina_scatter")})
+  observeEvent(input$ir_estado_actual,{nav_select("paginas_app", "pagina_estado_actual")})
   
   
   # Lógica para botones de "Volver" 
+  observeEvent(input$inicio,{nav_select("paginas_app","inicio")})
+  
+  
   observeEvent(input$volver_teoria,{nav_select("paginas_app","teoria")})
   observeEvent(input$volver_teoria2,{nav_select("paginas_app","teoria")})
-  observeEvent(input$volver_inicio, { nav_select("paginas_app", "inicio") })
-  observeEvent(input$volver_inicio2, { nav_select("paginas_app", "inicio") })
-  observeEvent(input$volver_inicio3, { nav_select("paginas_app", "inicio") })
-  observeEvent(input$volver_inicio4, { nav_select("paginas_app", "inicio") })
-  observeEvent(input$volver_inicio5, { nav_select("paginas_app", "inicio") })
+  observeEvent(input$volver_inicio, { nav_select("paginas_app", "analisis") })
+  observeEvent(input$volver_inicio2, { nav_select("paginas_app", "analisis") })
+  observeEvent(input$volver_inicio3, { nav_select("paginas_app", "analisis") })
+  observeEvent(input$volver_inicio4, { nav_select("paginas_app", "analisis") })
+  observeEvent(input$volver_inicio5, { nav_select("paginas_app", "analisis") })
+  observeEvent(input$volver_inicio6, { nav_select("paginas_app", "analisis") })
   
   #INICIADORES
   observe({
@@ -515,20 +290,40 @@ texto_analisis_ia <- reactiveVal("") #Guarda la respuesta
 esta_analizando_ia <- reactiveVal(FALSE) #Estado de carga de la ia
 
 
-#Control Dinamico Boton
 output$control_time_ui <- renderUI({
   if(esta_cargando_time()){
     div(
-      style= "padding:10px; background: #E8F5E9; border-radius: 8px; border: 1px solid #C8E6C9;",
-      p("Descargando datos de la RMCAB...", style="font-weight:bold; color: #2e7d32; margin_bottom: 5px"),
+      style= "padding:15px; background: #f0fdf4; border-radius: 12px; border: 1px solid #dcfce7; text-align: center;",
+      # Un spinner pequeño o icono de carga
+      icon("circle-notch", class = "fa-spin", style = "color: #28a745; font-size: 1.5rem; margin-bottom: 10px;"),
+      p("Descargando datos de la RMCAB...", style="font-weight:bold; color: #166534; margin-bottom: 5px"),
       textOutput("mensaje_carga_time")
     )
-  }else{
-    actionButton("generar_time", "Generar Gráfica",
-    icon=icon("chart-line"),
-    class="btn-primary",style="width: 100%;font-weight:700;")
+  } else {
+    actionButton(
+      "generar_time", 
+      "Generar Gráfica",
+      icon = icon("chart-line"),
+      # Quitamos "btn-primary" para usar nuestro propio estilo
+      style = "
+        width: 100%;
+        font-weight: 700;
+        padding: 15px;
+        border-radius: 12px;
+        border: none;
+        background: #1A73E8;
+        color: white;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
+        transition: all 0.3s ease; /* CLAVE para el hover */
+        cursor: pointer;
+      "
+    )
   }
 })
+
+
+
+
 #Logica descarga al presionar boton
 observeEvent(input$generar_time,{
   req(input$dates, input$station)
@@ -684,16 +479,34 @@ esta_analizando_ia_rp <- reactiveVal(FALSE) #Estado de carga de la ia
 output$control_rose_ui <- renderUI({
   if(esta_cargando_rose()){
     div(
-      style= "padding:10px; background: #E8F5E9; border-radius: 8px; border: 1px solid #C8E6C9;",
-      p("Descargando datos de la RMCAB...", style="font-weight:bold; color: #2e7d32; margin_bottom: 5px"),
+      style= "padding:15px; background: #f0fdf4; border-radius: 12px; border: 1px solid #dcfce7; text-align: center;",
+      # Un spinner pequeño o icono de carga
+      icon("circle-notch", class = "fa-spin", style = "color: #28a745; font-size: 1.5rem; margin-bottom: 10px;"),
+      p("Descargando datos de la RMCAB...", style="font-weight:bold; color: #166534; margin-bottom: 5px"),
       textOutput("mensaje_carga_rose")
     )
-  }else{
-    actionButton("generar_rose", "Generar Rosa de Contaminantes",
-                 icon=icon("wind"),
-                 style = "background-color: #0277BD; color: white; border: none; width: 100%; font-weight:700; padding: 10px; border-radius: 5px;")
+  } else {
+    actionButton(
+      "generar_rose", 
+      "Generar Rosa de Contaminantes",
+      icon = icon("wind"),
+      # Quitamos "btn-primary" para usar nuestro propio estilo
+      style = "
+        width: 100%;
+        font-weight: 700;
+        padding: 15px;
+        border-radius: 12px;
+        border: none;
+        background: #0369A1;
+        color: white;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
+        transition: all 0.3s ease; /* CLAVE para el hover */
+        cursor: pointer;
+      "
+    )
   }
 })
+
 #Logica descarga al presionar boton
 observeEvent(input$generar_rose,{
   req(input$dates_rose, input$station_rose)
@@ -894,16 +707,34 @@ esta_analizando_ia <- reactiveVal(FALSE) #Estado de carga de la ia
 output$control_corplot_ui <- renderUI({
   if(esta_cargando_corplot()){
     div(
-      style= "padding:10px; background: #E8F5E9; border-radius: 8px; border: 1px solid #C8E6C9;",
-      p("Descargando datos de la RMCAB...", style="font-weight:bold; color: #2e7d32; margin_bottom: 5px"),
+      style= "padding:15px; background: #f0fdf4; border-radius: 12px; border: 1px solid #dcfce7; text-align: center;",
+      # Un spinner pequeño o icono de carga
+      icon("circle-notch", class = "fa-spin", style = "color: #28a745; font-size: 1.5rem; margin-bottom: 10px;"),
+      p("Descargando datos de la RMCAB...", style="font-weight:bold; color: #166534; margin-bottom: 5px"),
       textOutput("mensaje_carga_corplot")
     )
   } else {
-    actionButton("generar_corplot", "Generar Correlación de Contaminantes",
-                 icon=icon("table"), 
-                 style = "background-color: #455A64; color: white; border: none; width: 100%; font-weight:700; padding: 10px;")
+    actionButton(
+      "generar_corplot", 
+      "Generar Correlación de Contaminantes",
+      icon = icon("table"),
+      # Quitamos "btn-primary" para usar nuestro propio estilo
+      style = "
+        width: 100%;
+        font-weight: 700;
+        padding: 15px;
+        border-radius: 12px;
+        border: none;
+        background: #0369A1;
+        color: white;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
+        transition: all 0.3s ease; /* CLAVE para el hover */
+        cursor: pointer;
+      "
+    )
   }
 })
+
 
 # Lógica descarga al presionar botón
 observeEvent(input$generar_corplot, {
@@ -1146,10 +977,26 @@ bogota_poligono <- tryCatch({
 
 # Botón dinámico
 output$control_gif_ui <- renderUI({
-  actionButton("generar_gif", "Generar GIF",
-               icon = icon("film"),
-               style="background-color:#FBC02D; color:black; font-weight:700; width:100%" )
-})
+    actionButton(
+      "generar_gif", 
+      "Generar GIF",
+      icon = icon("film"),
+      # Quitamos "btn-primary" para usar nuestro propio estilo
+      style = "
+        width: 100%;
+        font-weight: 700;
+        padding: 15px;
+        border-radius: 12px;
+        border: none;
+        background: #FBC02D;
+        color: white;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
+        transition: all 0.3s ease; /* CLAVE para el hover */
+        cursor: pointer;
+      "
+    )
+  })
+
 
 observeEvent(input$generar_gif, {
   
@@ -1323,6 +1170,10 @@ output$gif_plot_output <- renderImage({
   list(src = path, contentType = "image/gif", width = "70%", height = "auto",
        style = "display:block; margin:auto; max-width:100%;")
 }, deleteFile = FALSE)
+
+
+
+
 #----LOGICA PAGINA: SCATTER -------------------
 
 datos_scatter <- reactiveVal(NULL)
@@ -1338,22 +1189,36 @@ esta_analizando_ia_scatter <- reactiveVal (FALSE)
 
 # ---- Botón dinámico ----
 output$control_scatter_ui <- renderUI({
-  if (esta_cargando_scatter()) {
+  if(esta_cargando_scatter()){
     div(
-      style = "padding:10px; background: #E8F5E9; border-radius: 8px; border: 1px solid #C8E6C9;",
-      p("Descargando datos de la RMCAB...",
-        style = "font-weight:bold; color: #2e7d32; margin-bottom: 5px"),
+      style= "padding:15px; background: #f0fdf4; border-radius: 12px; border: 1px solid #dcfce7; text-align: center;",
+      # Un spinner pequeño o icono de carga
+      icon("circle-notch", class = "fa-spin", style = "color: #28a745; font-size: 1.5rem; margin-bottom: 10px;"),
+      p("Descargando datos de la RMCAB...", style="font-weight:bold; color: #166534; margin-bottom: 5px"),
       textOutput("mensaje_carga_scatter")
     )
   } else {
     actionButton(
-      "generar_scatter",
-      "Generar Diagrama",
+      "generar_scatter", 
+      "Generar Diagrama Bivariado",
       icon = icon("chart-line"),
-      style = "background-color: #A7AAAB; color: white; border: none; width: 100%; font-weight:700; padding: 10px;"
+      # Quitamos "btn-primary" para usar nuestro propio estilo
+      style = "
+        width: 100%;
+        font-weight: 700;
+        padding: 15px;
+        border-radius: 12px;
+        border: none;
+        background: #4F46E5;
+        color: white;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
+        transition: all 0.3s ease; /* CLAVE para el hover */
+        cursor: pointer;
+      "
     )
   }
 })
+
 # ---- Descarga al presionar botón ----
 observeEvent(input$generar_scatter, {
   req(input$dates_scatter, input$station_scatter)

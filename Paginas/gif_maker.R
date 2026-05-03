@@ -1,7 +1,7 @@
 # Paginas/gif_maker.R
 
 ui_gif_maker <- nav_panel_hidden(
-  "pagina_gif",
+  "pagina_gif",style="margin-top:50px;",
   layout_sidebar(
     sidebar = sidebar(
       title = "Configurador de GIF",
@@ -77,6 +77,19 @@ ui_gif_maker <- nav_panel_hidden(
         )
       )
     )
-  )
+  ),
+  # CSS adicional para efectos de 'Hover'
+  tags$style(HTML("
+   #volver_inicio4:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(251, 192, 45, 0.4) !important;
+      filter: brightness(1.1);
+   }
+  #generar_gif:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(251, 192, 45, 0.4) !important;
+      filter: brightness(1.1);
+   }"
+  )),
 )
 

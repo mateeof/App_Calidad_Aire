@@ -3,7 +3,7 @@ library(shinycssloaders)
 library(bsicons)
 
 ui_corplot <- nav_panel_hidden(
-  "pagina_cor",
+  "pagina_cor",style="margin-top:50px;",
   layout_sidebar(
     sidebar = sidebar(
       title = span(bs_icon("grid-3x3"), " Correlación Lineal"),
@@ -28,7 +28,7 @@ ui_corplot <- nav_panel_hidden(
         "Analizar Matriz",
         icon = bs_icon("cpu"), # Cambiado a CPU para diferenciar de la otra página
         class = "w-100",
-        style = "background-color: #1A73E8; color: white; border: none; font-weight: 700; padding: 12px; border-radius: 8px; box-shadow: 0 2px 5px rgba(26,115,232,0.2);"
+        style = "background-color: #0369A1; color: white; border: none; font-weight: 700; padding: 12px; border-radius: 8px; box-shadow: 0 2px 5px rgba(26,115,232,0.2);"
       ),
       
       hr(style = "border-top: 1px solid #dee2e6;"),
@@ -53,7 +53,7 @@ ui_corplot <- nav_panel_hidden(
       card_body(
         withSpinner(
           plotOutput("plot_corplot", height = "580px"),
-          color = "#1A73E8",
+          color = "#0369A1",
           type = 5
         ),
         hr(),
@@ -68,7 +68,7 @@ ui_corplot <- nav_panel_hidden(
             withSpinner(
               uiOutput("analisis_ia_out_cor"),
               type = 4,
-              color = "#1A73E8",
+              color = "#0369A1",
               size = 0.7
             )
             )
@@ -77,5 +77,23 @@ ui_corplot <- nav_panel_hidden(
       ),
       style = "border-radius: 12px; border: 1px solid #e0e0e0; box-shadow: 0 4px 12px rgba(0,0,0,0.03);"
     )
-  )
+  ),
+  # CSS adicional para efectos de 'Hover'
+  tags$style(HTML("
+   #btn_analizar_cor:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(69, 90, 100, 0.4) !important;
+      filter: brightness(1.1);
+   }
+   #volver_inicio3:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(120, 144, 156, 0.4) !important;
+      filter: brightness(1.1);
+   }
+  #generar_corplot:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(69, 90, 100, 0.4) !important;
+      filter: brightness(1.1);
+   }"
+  )),
 )

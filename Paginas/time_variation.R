@@ -3,7 +3,7 @@ library(shinycssloaders)
 library(bsicons)
 
 ui_time_variation <- nav_panel_hidden(
-  "pagina_analisis",
+  "pagina_time_variation",style="margin-top:50px;",
   layout_sidebar(
     sidebar = sidebar(
       title = span(bs_icon("clock-history"), " Análisis Temporal"),
@@ -48,12 +48,12 @@ ui_time_variation <- nav_panel_hidden(
       card_header(
         div(class="d-flex justify-content-between align-items-center",
             span(bs_icon("calendar3"), " Comportamiento de Contaminantes en el Tiempo"),
-            span(class="badge", style="background-color: #E8F5E9; color: #2E7D32;", "Tendencias Históricas"))
+            span(class="badge", style="background-color: #BED7F9; color: #BED7F9;", "Tendencias Históricas"))
       ),
       card_body(
         withSpinner(
           plotOutput("time_variation_plot", height = "580px"),
-          color = "#2E8B57", # Verde para la carga de datos ambientales
+          color = "#BED7F9", # Verde para la carga de datos ambientales
           type = 7
         ),
         hr(),
@@ -69,13 +69,31 @@ ui_time_variation <- nav_panel_hidden(
               uiOutput("analisis_ia_out"),
               type = 4,
               color = "#1A73E8", # Azul para la carga de IA
-              size = 0.7
+              size = 0.7,
             )
             )
           )
         )
       ),
-      style = "border-radius: 12px; border: 1px solid #E8F5E9;"
+      style = "border-radius: 12px; border: 1px solid #BED7F9;"
     )
-  )
+  ),
+  # CSS adicional para efectos de 'Hover'
+  tags$style(HTML("
+   #btn_analizar_tv:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(26, 115, 232, 0.4) !important;
+      filter: brightness(1.1);
+   }
+   #volver_inicio:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(69, 90, 100, 0.4) !important;
+      filter: brightness(1.1);
+   }
+  #generar_time:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(69, 90, 100, 0.4) !important;
+      filter: brightness(1.1);
+   }"
+                  )),
 )
