@@ -10,7 +10,17 @@ plot_time_variation <- function(data, pollutant){
 }
 
 plot_pollution_rose <- function(data, pollutant){
-  res<-pollutionRose(data, pollutant = pollutant)
+  res<-pollutionRose(
+    data, 
+    pollutant = pollutant,
+    sub="Frecuencia de registros por dirección del viento (%)",
+    labels=c("Norte", "NE", "Oriente", "SE", "Sur", "SO", "Occidente", "NO"),
+    key=list(
+      header= "Niveles de \nconcentración",
+      footer= paste("Unidades", toupper(pollutant))
+    ),
+    annotate=FALSE
+    )
   return(res)
 }
 

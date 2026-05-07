@@ -474,6 +474,19 @@ v_res_rp_objeto <- reactiveVal(NULL) #Guarda el objeto de openar
 texto_analisis_ia_rp <- reactiveVal("") #Guarda la respuesta
 esta_analizando_ia_rp <- reactiveVal(FALSE) #Estado de carga de la ia
 
+# Badge con el año seleccionado
+output$badge_year_rose <- renderText({ input$year_rose })
+
+# Helper: rangos de cada trimestre dado un año
+trimestres_del_anio <- function(yr) {
+  yr <- as.integer(yr)
+  list(
+    Q1 = as.Date(c(paste0(yr, "-01-01"), paste0(yr, "-03-31"))),
+    Q2 = as.Date(c(paste0(yr, "-04-01"), paste0(yr, "-06-30"))),
+    Q3 = as.Date(c(paste0(yr, "-07-01"), paste0(yr, "-09-30"))),
+    Q4 = as.Date(c(paste0(yr, "-10-01"), paste0(yr, "-12-31")))
+  )
+}
 
 #Control Dinamico Boton
 output$control_rose_ui <- renderUI({
@@ -509,146 +522,197 @@ output$control_rose_ui <- renderUI({
 
 #Logica descarga al presionar boton
 observeEvent(input$generar_rose,{
-  req(input$dates_rose, input$station_rose)
+  req(input$year_rose, input$station_rose)
   
   datos_rose(NULL)
   texto_analisis_ia_rp("")
-  v_res_rp_objeto(NULL)
   esta_cargando_rose(TRUE)
   
+  yr <- as.integer(input$year_rose)
+  tms <- trimestres_del_anio(yr)
   
-  withProgress(message = "Obteniendo datos meteorologicos...", value=0.5,{
+  
+  withProgress(message = "Descargando año completo...", value=0.3,{
     output$mensaje_carga_rose <- renderText({ 
-      paste("Descargando:", input$station_rose) 
+      paste("Estación:", input$station_rose, "| Año:", yr) 
     })
     #Ejecutamos descarga
     df <- try({
       get_data_clean(
         aqs=input$station_rose,
-        start_date = format(input$dates_rose[1],"%d-%m-%Y"),
-        end_date = format(input$dates_rose[2], "%d-%m-%Y")
+        start_date = format(tms$Q1[1],"%d-%m-%Y"),
+        end_date = format(tms$Q4[2], "%d-%m-%Y")
       )
     },silent = TRUE)
     
     #Detectar error
     if(inherits(df, "try-error") || is.null(df) || (is.data.frame(df) && nrow(df)==0)){
       showNotification(
-        paste("La estación seleccionada no reporta datos en este periodo. Por favor, intenta con otra estación o rango de fechas."),
+        "No hay datos para esta estación en el año seleccionado.",
         type = "warning",
         duration = 10
       )
       datos_rose(NULL)
     }else{
+      df$date<- as.Date(df$date)
       datos_rose(df)
     }
   })
   esta_cargando_rose(FALSE)
 })
-#Renderizar la grafica
-output$plot_rose<-renderPlot({
-  input$generar_rose
+render_rosa_trimestre<-function(df_full, p_sel, q_rango, q_label){
+  # 1. Validación inicial
+  shiny::validate(
+    shiny::need(is.data.frame(df_full), "Primero descargue los datos."),
+    shiny::need(!is.null(p_sel), "Seleccione un contaminante")
+  )
   
-  df<-datos_rose()
-  if(is.null(df)){
-    return(NULL)
-  }
+  # 2. Convertir la columna date a clase Date (por si acaso viene como texto)
+  df_full$date <- as.Date(df_full$date)
   
-  p_sel<- (input$pollutant_rose)
-  s_sel <- (input$station_rose)
+  # 3. Asegurar que los límites del rango sean clase Date
+  inicio_q <- as.Date(q_rango[1])
+  fin_q    <- as.Date(q_rango[2])
+  
+  # 4. Filtrar usando objetos Date puros
+  df_q <- df_full[df_full$date >= inicio_q & df_full$date <= fin_q, ]
+  
   
   shiny::validate(
-    shiny::need(is.data.frame(df), "Datos no válidos."),
-    shiny::need(nrow(df) > 0, "La RMCAB no devolvió datos."),
-    
-    # Verifica que el contaminante tenga datos numéricos reales
-    shiny::need(p_sel %in% names(df) && sum(!is.na(df[[p_sel]])) > 0, 
-                paste("La estación", s_sel, "registra el sensor de", toupper(p_sel), 
-                      "pero todos los valores en este rango de fechas son nulos (NAs).")),
-    
-    # Verifica que el viento tenga datos reales
-    shiny::need(sum(!is.na(df$ws)) > 0 && sum(!is.na(df$wd)) > 0,
-                "Existen columnas de viento pero no hay valores numéricos válidos (NAs).")
+    shiny::need(nrow(df_q)>0,
+    paste("Sin datos para", q_label)),
+    shiny::need(p_sel %in% names(df_q) && sum(!is.na(df_q[[p_sel]]))>0,
+                paste(q_label, "- Sin registros de", toupper(p_sel))),
+    shiny::need(sum(!is.na(df_q$ws))>0 && sum(!is.na(df_q$wd))>0,
+                paste(q_label, "- Sin datos de viento validos"))
   )
-  #Intentat graficas
   tryCatch({
-    df_clean <- df[!is.na(df$ws) & !is.na(df$wd) & !is.na(df[[p_sel]]), ]
-    res<-plot_pollution_rose(data = df,pollutant = p_sel)
-    v_res_rp_objeto(res)
-    return(res)
-  }, error= function(e){
-    v_res_rp_objeto(NULL)
-    validate("Error de graficación: No hay suficientes datos válidos para este contaminante")
+    # openair necesita que la columna se llame exactamente 'date'
+    plot_pollution_rose(data = df_q, pollutant = p_sel)
+  }, error = function(e) {
+    NULL
   })
+}
+
+#Renderizar la grafica
+
+output$plot_rose_q1<-renderPlot({
+  req(datos_rose())
+  tms<-trimestres_del_anio(input$year_rose)
+  render_rosa_trimestre(datos_rose(), input$pollutant_rose, tms$Q1, "Q1 (Ene-Mar")})
   
-})
+output$plot_rose_q2<-renderPlot({
+  req(datos_rose())
+  tms<-trimestres_del_anio(input$year_rose)
+  render_rosa_trimestre(datos_rose(), input$pollutant_rose, tms$Q2, "Q2 (Abri-Jun")})
+
+output$plot_rose_q3<-renderPlot({
+  req(datos_rose())
+  tms<-trimestres_del_anio(input$year_rose)
+  render_rosa_trimestre(datos_rose(), input$pollutant_rose, tms$Q3, "Q3 (Julio-Sep")})
+
+output$plot_rose_q4<-renderPlot({
+  req(datos_rose())
+  tms<-trimestres_del_anio(input$year_rose)
+  render_rosa_trimestre(datos_rose(), input$pollutant_rose, tms$Q4, "Q4 (Oct-Dic")})
+
+
 
 observeEvent(input$btn_analizar_rp, {
-  req(v_res_rp_objeto())
+  req(datos_rose())
   texto_analisis_ia_rp(NULL)
   
   p_ia <- isolate(input$pollutant_rose)
   s_ia <- isolate(input$station_rose)
+  yr_ia <- isolate(input$year_rose)
+  tms   <- trimestres_del_anio(yr_ia)
   
   texto_analisis_ia_rp("Estableciendo conexión segura con Google...")
   
-  # --- PREPARAR DATOS REALES DE LA ROSA ---
-  res_obj <- v_res_rp_objeto()
-  datos_df <- as.data.frame(res_obj$data)
+  df_full <- datos_rose()
   
-  # Columnas de intervalos de concentración (los bins de color de la rosa)
-  cols_intervalos <- grep("^Interval", names(datos_df), value = TRUE)
-  
-  # Construir tabla resumen: dirección + frecuencia acumulada por bin
-  resumen <- datos_df[, c("wd", cols_intervalos), drop = FALSE]
-  resumen$direccion_grados <- resumen$wd
-  resumen$frecuencia_total_pct <- rowSums(resumen[, cols_intervalos], na.rm = TRUE)
-  resumen$wd <- NULL
-  
-  # Renombrar intervalos con contexto
-  n_bins <- length(cols_intervalos)
-  for (i in seq_along(cols_intervalos)) {
-    names(resumen)[names(resumen) == cols_intervalos[i]] <- paste0("bin_", i, "_de_", n_bins, "_pct")
+  # --- Helper: resume un trimestre en tabla de dirección + bins ---
+  resumir_trimestre <- function(df_full, q_rango, q_label) {
+    df_q <- df_full[df_full$date >= q_rango[1] & df_full$date <= q_rango[2], ]
+    
+    if (nrow(df_q) == 0 || !p_ia %in% names(df_q) ||
+        sum(!is.na(df_q[[p_ia]])) == 0) {
+      return(list(trimestre = q_label, error = "Sin datos válidos"))
+    }
+    
+    tryCatch({
+      res_obj   <- plot_pollution_rose(data = df_q, pollutant = p_ia)
+      datos_df  <- as.data.frame(res_obj$data)
+      cols_bins <- grep("^Interval", names(datos_df), value = TRUE)
+      
+      resumen <- datos_df[, c("wd", cols_bins), drop = FALSE]
+      resumen$frecuencia_total_pct <- rowSums(resumen[, cols_bins], na.rm = TRUE)
+      
+      # Renombrar bins a lenguaje claro
+      etiquetas <- c("concentracion_baja", "concentracion_media_baja",
+                     "concentracion_media", "concentracion_media_alta",
+                     "concentracion_alta")
+      for (i in seq_along(cols_bins)) {
+        label <- if (i <= length(etiquetas)) etiquetas[i] else paste0("nivel_", i)
+        names(resumen)[names(resumen) == cols_bins[i]] <- label
+      }
+      
+      list(trimestre = q_label, datos = resumen)
+      
+    }, error = function(e) {
+      list(trimestre = q_label, error = e$message)
+    })
   }
   
-  # Extraer los límites de los bins desde el objeto (si están disponibles en call)
-  breaks_info <- tryCatch({
-    as.character(res_obj$call)
-  }, error = function(e) "no disponible")
+  # --- Construir JSON con los 4 trimestres ---
+  datos_4q <- list(
+    resumir_trimestre(df_full, tms$Q1, "Q1 Enero-Marzo"),
+    resumir_trimestre(df_full, tms$Q2, "Q2 Abril-Junio"),
+    resumir_trimestre(df_full, tms$Q3, "Q3 Julio-Septiembre"),
+    resumir_trimestre(df_full, tms$Q4, "Q4 Octubre-Diciembre")
+  )
   
   datos_json <- jsonlite::toJSON(
     list(
-      descripcion = paste(
-        "Rosa de contaminantes para", p_ia, "en estacion", s_ia,
-        "- Cada fila es un sector de direccion del viento.",
-        "Los bins (bin_1 al bin_N) representan categorias de concentracion de menor a mayor.",
-        "El valor es el porcentaje de observaciones en esa categoria para esa direccion.",
-        "frecuencia_total_pct es el porcentaje total de vientos desde esa direccion."
+      contaminante = p_ia,
+      estacion     = s_ia,
+      anio         = yr_ia,
+      descripcion  = paste(
+        "Datos de rosa de contaminantes para", p_ia, "en la estación", s_ia,
+        "durante el año", yr_ia, "divididos en 4 trimestres.",
+        "Cada trimestre tiene datos por sector de dirección del viento.",
+        "Los niveles van de concentración baja a alta.",
+        "frecuencia_total_pct indica qué tan frecuente es el viento desde esa dirección."
       ),
-      datos_por_sector = resumen
+      trimestres = datos_4q
     ),
-    auto_unbox = TRUE,
-    pretty = FALSE,
-    na = "null"
+    auto_unbox = TRUE, pretty = FALSE, na = "null"
   )
   
+  #Llamada a Gemini
   tryCatch({
     api_key <- Sys.getenv("GEMINI_API_KEY")
     url_ia <- "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     
     prompt_texto <- paste0(
       "Eres un experto en calidad del aire de Bogotá. ",
-      "Analiza los datos de una Rosa de Contaminantes para '", p_ia, 
-      "' en la estación '", s_ia, "'. ",
-      "Cada fila representa un sector de dirección del viento. ",
-      "Los bins van de concentración baja (bin_1) a alta (bin_N) y el valor es el porcentaje de observaciones. ",
-      "frecuencia_total_pct indica qué tan frecuente es el viento desde esa dirección. ",
-      "Por favor: ",
-      "1) Identifica las direcciones con mayor concentración del contaminante. ",
-      "2) Señala si hay una fuente probable según esas direcciones en el contexto urbano de Bogotá. ",
-      "3) Comenta si el viento dominante coincide o no con las mayores concentraciones. ",
-      "4) Da una conclusión breve sobre el riesgo para la zona. ",
-      "No uses en la descripcion los terminos bin_1 o bin_N o frecuencia_total_pct. Pues el usuario no va a saber que eso, reemplazo el nombre ent erminos que
-      entienda la poblacion en general. Debe ser un analisis que cualquier persona pueda entender pero mantiendo en cierto grado lo tecnico",
+      "Analiza los datos de Rosas de Contaminantes para '", p_ia,
+      "' en la estación '", s_ia, "' durante el año ", yr_ia, ". ",
+      "Los datos están divididos en 4 trimestres. Cada trimestre tiene sectores de dirección del viento ",
+      "con sus frecuencias y niveles de concentración del contaminante. ",
+      
+      "Por favor realiza un análisis COMPARATIVO entre trimestres que incluya: ",
+      "1) Para cada trimestre: direcciones predominantes del viento y si coinciden con altas concentraciones. ",
+      "2) Comparación entre trimestres: ¿en qué época del año es peor la contaminación y por qué? ",
+      "3) ¿Cambia la dirección de procedencia del contaminante entre estaciones del año? Esto puede indicar ",
+      "   cambios en fuentes o en patrones de viento estacionales. ",
+      "4) Conclusión sobre el riesgo para la zona a lo largo del año. ",
+      
+      "El análisis debe ser claro para el público general pero mantener rigor técnico. ",
+      "No menciones los nombres técnicos de las columnas (como 'frecuencia_total_pct'). ",
+      "Usa lenguaje natural: 'vientos desde el norte', 'niveles altos de concentración', etc. ",
+      "Organiza la respuesta con subtítulos por trimestre y luego una sección comparativa final. ",
+      
       "Datos JSON: ", datos_json
     )
     

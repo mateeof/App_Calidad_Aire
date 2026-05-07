@@ -128,7 +128,7 @@ ui_modulos_analisis<-div(
           card_header(
             div(class = "d-flex align-items-center",
                 bs_icon("compass", size = "1.5rem", class = "me-2"),
-                span("Origen y Dispersión", style = "font-weight: 700; font-size: 1.25rem;")
+                span("Procedencia de los contaminantes", style = "font-weight: 700; font-size: 1.25rem;")
             ),
             # Usamos un azul profundo pero vibrante para el tema de vientos
             style = "background-color: #0369A1; color: white; border: none; padding: 15px;"
