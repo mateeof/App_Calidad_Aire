@@ -9,9 +9,9 @@ ui_time_variation <- nav_panel_hidden(
       title = span(bs_icon("clock-history"), " Análisis Temporal"),
       bg = "#F7F9F7", # Un verde/grisáceo casi imperceptible
       
-      dateRangeInput("dates", "Rango de fechas:", 
-                     start = Sys.Date() - 7, end = Sys.Date(),
-                     language = "es"),
+      selectInput("anio", "Año:", 
+                  choices = as.character(seq(format(Sys.Date(), "%Y"), 2016, by = -1)),
+                  selected = format(Sys.Date(), "%Y")),
       
       selectInput("station", "Estación de Monitoreo:", choices = NULL),
       selectInput("pollutant", "Contaminante:", choices = NULL),
@@ -39,6 +39,26 @@ ui_time_variation <- nav_panel_hidden(
         "Volver al Menú", 
         icon = bs_icon("arrow-left-circle"),
         style = "background-color: transparent; color: #455A64; border: 1px solid #CFD8DC; width: 100%; font-weight: 500; border-radius: 6px;"
+      ),
+      div(
+        style = "background-color: white; border-radius: 12px; padding: 15px; border: 1px solid #E0F2FE; box-shadow: 0 2px 4px rgba(0,0,0,0.05);",
+        h6(style = "color: #0369A1; font-weight: 700; display: flex; align-items: center; gap: 8px;",
+           bs_icon("info-circle"), "¿Cómo leer esta gráfica?"),
+        
+        p(style = "font-size: 0.85rem; color: #475569; margin-bottom: 8px;",
+          "Esta gráfica resume el comportamiento típico del contaminante analizando tres dimensiones temporales:"),
+        
+        tags$ul(
+          style = "font-size: 0.8rem; color: #64748b; padding-left: 1.2rem; margin-bottom: 8px;",
+          tags$li(tags$b("Por hora:"), " variación a lo largo del día."),
+          tags$li(tags$b("Por día:"), " variación a lo largo de la semana."),
+          tags$li(tags$b("Por mes:"), " variación a lo largo del año.")
+        ),
+        
+        p(style = "font-size: 0.8rem; color: #475569; margin-bottom: 0;",
+          "Los valores que ves no son de un solo día, sino el resultado de promediar muchos días juntos para encontrar el comportamiento típico del contaminante. La ",
+          tags$b("línea del centro"), " muestra ese promedio, y las ",
+          tags$b("bandas sombreadas"), " que la rodean nos dicen qué tan seguros estamos de ese valor: si las bandas son delgadas, significa que casi siempre pasa lo mismo; si son anchas, significa que hay días muy diferentes entre sí.")
       )
     ),
     
@@ -48,7 +68,7 @@ ui_time_variation <- nav_panel_hidden(
       card_header(
         div(class="d-flex justify-content-between align-items-center",
             span(bs_icon("calendar3"), " Comportamiento de Contaminantes en el Tiempo"),
-            span(class="badge", style="background-color: #BED7F9; color: #BED7F9;", "Tendencias Históricas"))
+            span(class="badge", style="background-color: #BED7F9; color: #8c96a3;", "Tendencias Históricas"))
       ),
       card_body(
         withSpinner(
@@ -77,6 +97,7 @@ ui_time_variation <- nav_panel_hidden(
       ),
       style = "border-radius: 12px; border: 1px solid #BED7F9;"
     )
+    
   ),
   # CSS adicional para efectos de 'Hover'
   tags$style(HTML("
