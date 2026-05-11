@@ -32,6 +32,7 @@ source("Paginas/teoria.R")
 source("Paginas/modulos_analisis.R")
 source("Paginas/estado_actual.R")
 source("Paginas/inicio.R")
+source("Paginas/calendar_plot.R")
 
 
 # Dataset de Estaciones (Coordenadas aproximadas RMCAB)
@@ -114,7 +115,8 @@ ui <- page_fillable(
     nav_panel_hidden("pagina_cor", ui_corplot),
     nav_panel_hidden("pagina_gif", ui_gif_maker),
     nav_panel_hidden("pagina_scatter", ui_scatter),
-    nav_panel_hidden("pagina_estado_actual", ui_estado_actual)
+    nav_panel_hidden("pagina_estado_actual", ui_estado_actual),
+    nav_panel_hidden("pagina_calendar_plot", ui_calendar_plot)
   ),
   
   
@@ -176,6 +178,7 @@ server <- function (input, output, session){
   observeEvent(input$ir_gif, { nav_select("paginas_app", "pagina_gif") })
   observeEvent(input$ir_scatter,{nav_select("paginas_app", "pagina_scatter")})
   observeEvent(input$ir_estado_actual,{nav_select("paginas_app", "pagina_estado_actual")})
+  observeEvent(input$ir_calendar,{nav_select("paginas_app", "pagina_calendar_plot")})
   
   
   # Lógica para botones de "Volver" 
@@ -190,7 +193,7 @@ server <- function (input, output, session){
   observeEvent(input$volver_inicio4, { nav_select("paginas_app", "analisis") })
   observeEvent(input$volver_inicio5, { nav_select("paginas_app", "analisis") })
   observeEvent(input$volver_inicio6, { nav_select("paginas_app", "analisis") })
-  
+  observeEvent(input$volver_inicio7, { nav_select("paginas_app", "analisis") })
   #INICIADORES
   observe({
     req(rmcab_aqs)
@@ -199,6 +202,8 @@ server <- function (input, output, session){
     updateSelectInput(session, "station_rose", choices = rmcab_aqs$aqs)
     updateSelectInput(session, "station_corplot", choices = rmcab_aqs$aqs)
     updateSelectInput(session, "station_scatter", choices = rmcab_aqs$aqs)
+    updateSelectInput(session, "station_cal", choices = rmcab_aqs$aqs)
+    
     #CONTAMINANTES
     lista_contaminantes <- c("pm10", "pm2.5", "co", "no", "no2", "nox", "so2", "ozono")
     updateSelectInput(session, "pollutant", choices = lista_contaminantes)
@@ -206,6 +211,7 @@ server <- function (input, output, session){
     updateSelectInput(session, "pollutant_gif", choices = lista_contaminantes)
     updateSelectInput(session, "Pollutant_x", choices = lista_contaminantes)
     updateSelectInput(session, "Pollutant_y", choices = lista_contaminantes)
+    updateSelectInput(session, "pollutant_cal", choices = lista_contaminantes)
   })
   
   
@@ -1417,7 +1423,99 @@ output$analisis_ia_scatter_out <- renderUI({
 })
 
 
+#----LOGICA PAGINA: Calendar Plot----
 
+datos_cal <- reactiveVal(NULL)
+esta_cargando_cal <- reactiveVal(FALSE)
+
+output$control_cal_ui <- renderUI({
+  if(esta_cargando_cal()){
+    div(
+      style = "padding:15px; background: #f0fdf4; border-radius: 12px; border: 1px solid #dcfce7; text-align: center;",
+      icon("circle-notch", class = "fa-spin", style = "color: #28a745; font-size: 1.5rem; margin-bottom: 10px;"),
+      p("Descargando datos de la RMCAB...", style = "font-weight:bold; color: #166534; margin-bottom: 5px")
+    )
+  } else {
+    actionButton(
+      "generar_cal",
+      "Generar Calendar Plot",
+      icon = icon("calendar"),
+      style = "
+        width: 100%;
+        font-weight: 700;
+        padding: 15px;
+        border-radius: 12px;
+        border: none;
+        background: #0D9488;
+        color: white;
+        box-shadow: 0 4px 15px rgba(26, 115, 232, 0.2);
+        transition: all 0.3s ease;
+        cursor: pointer;
+      "
+    )
+  }
+})
+
+observeEvent(input$generar_cal, {
+  req(input$anio_cal, input$station_cal)
+  
+  datos_cal(NULL)
+  esta_cargando_cal(TRUE)
+  
+  # Calcular rango del mes seleccionado
+  anio <- as.integer(input$anio_cal)
+  #mes  <- as.integer(input$mes_cal)
+  
+  
+  withProgress(message = "Conectando con servidor RMCAB...", value = 0, {
+    resultado <- try({
+      get_data_clean(
+        aqs        = input$station_cal,
+        start_date = format(as.Date(paste0(anio, "-01-01")), "%d-%m-%Y"),
+        end_date   = format(as.Date(paste0(anio, "-12-31")), "%d-%m-%Y")
+      )
+    }, silent = TRUE)
+    
+    if(inherits(resultado, "try-error") || is.null(resultado) || nrow(resultado) == 0){
+      showNotification(
+        "La estación no reporta datos para el mes seleccionado. Intenta con otro mes o estación.",
+        type = "warning",
+        duration = 10
+      )
+      datos_cal(NULL)
+    } else {
+      datos_cal(resultado)
+    }
+  })
+  esta_cargando_cal(FALSE)
+})
+
+output$calendar_plot <- renderPlot({
+  input$generar_cal
+  
+  df <- datos_cal()
+  if(is.null(df)) return(NULL)
+  
+  p_sel <- input$pollutant_cal
+  s_sel <- input$station_cal
+  
+  shiny::validate(
+    shiny::need(is.data.frame(df), "Hubo un problema técnico al procesar los datos."),
+    shiny::need(nrow(df) > 0, "No hay datos para este período."),
+    shiny::need(p_sel %in% names(df), paste("La estación", s_sel, "no mide", p_sel))
+  )
+  
+  tryCatch({
+    plot_calendar(
+      data      = df,
+      pollutant = p_sel,
+      anio      = input$anio_cal
+      #mes       = input$mes_cal
+    )
+  }, error = function(e){
+    validate("Error de graficación: No hay suficientes datos válidos para este contaminante.")
+  })
+})
 
 }
 
