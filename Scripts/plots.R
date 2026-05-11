@@ -17,7 +17,7 @@ plot_time_variation <- function(data, pollutant){
     ylab = pollutant,
     xlab = c("Dia y hora de la semana", "Hora", "Mes", "Semana")
   )
-  return(res)
+  invisible(res)
 }
 
 plot_pollution_rose <- function(data, pollutant){
@@ -43,3 +43,15 @@ plot_correlation <- function (data){
 plot_scatter <- function (data, x,y){
   res <- scatterPlot(data,x,y,method = "scatter")
 }
+
+plot_calendar <- function(data, pollutant, anio, mes){
+  calendarPlot(
+    data,
+    pollutant = pollutant,
+    year = as.integer(anio),
+    par.settings = list( fontsize = list(text = 10, points = 10),par.main.text = list(cex = 1.2) )
+  )
+  title(nombre_mes, cex.main=10)
+  invisible(res)
+}
+

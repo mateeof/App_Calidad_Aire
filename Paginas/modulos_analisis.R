@@ -333,8 +333,50 @@ ui_modulos_analisis<-div(
               class = "btn-hover-effect"
             )
           )
-        )
+        ),
         
+        #Tarjeta #7
+        card(
+          style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
+          
+          card_header(
+            div(class = "d-flex align-items-center",
+                bs_icon("calendar3", size = "1.5rem", class = "me-2"),
+                span("Distribución Diaria", style = "font-weight: 700; font-size: 1.25rem;")
+            ),
+            style = "background-color: #0D9488; color: white; border: none; padding: 15px;"
+          ),
+          
+          card_body(
+            style = "padding: 20px; background-color: white;",
+            
+            div(style = "min-height: 90px; text-align: center;",
+                p("¿Qué días del mes fueron los más contaminados?",
+                  style = "font-size: 1.1rem; color: #0D9488; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
+                p("Visualiza la concentración diaria de contaminantes en formato calendario para identificar episodios críticos de contaminación.",
+                  style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")
+            ),
+            
+            div(class = "text-center my-3",
+                style = "border-radius: 10px; padding: 10px; border: 1px solid #CCFBF1;",
+                tags$img(
+                  src = "calendarPlot.png",
+                  style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));"
+                )
+            )
+          ),
+          
+          card_footer(
+            style = "background: white; border-top: 1px solid #f1f1f1; padding: 15px;",
+            actionButton(
+              "ir_calendar",
+              "Ver Calendar Plot",
+              icon = bs_icon("calendar3"),
+              style = "background-color: #0D9488; color: white; border: none; width: 100%; font-weight: 700; padding: 12px; border-radius: 8px;",
+              class = "btn-hover-effect"
+            )
+          )
+        ),
       ),
   # CSS adicional para efectos de 'Hover'
   tags$style(HTML("
@@ -367,6 +409,11 @@ ui_modulos_analisis<-div(
       transform: translateY(-5px);
       box-shadow: 0 15px 30px rgba(255, 140, 140, 0.4) !important;
       filter: brightness(1.1);
-    }
-  ")),
-)
+     }
+    #ir_calendar:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(13, 148, 136, 0.4) !important;
+  filter: brightness(1.1);
+}
+  "))
+      )
