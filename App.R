@@ -325,8 +325,9 @@ output$control_time_ui <- renderUI({
 
 
 #Logica descarga al presionar boton
-observeEvent(input$generar_time,{
-  req(input$dates, input$station)
+observeEvent(input$generar_time, {
+  req(input$anio, input$station)
+  
   
   texto_analisis_ia("")
   v_res_tv_objeto(NULL)
@@ -340,8 +341,8 @@ observeEvent(input$generar_time,{
     resultado <- try({
       get_data_clean(
         aqs=input$station,
-        start_date = format(input$dates[1],"%d-%m-%Y"),
-        end_date = format(input$dates[2], "%d-%m-%Y")
+        start_date = format(as.Date(paste0(input$anio, "-01-01")), "%d-%m-%Y"),
+        end_date   = format(as.Date(paste0(input$anio, "-12-31")), "%d-%m-%Y")
       )
     },silent = TRUE)
     

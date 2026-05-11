@@ -91,7 +91,7 @@ ui_modulos_analisis<-div(
             
             # Texto superior
             div(style = "min-height: 90px; text-align: center;",
-                p("¿En qué momentos se alcanzan los picos críticos de polución?", 
+                p("¿Cómo cambia la concentracion de contaminantes a lo largo de un dia, semana, un año?", 
                   style = "font-size: 1.1rem; color: #2E8B57; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
                 p("Identifica ciclos horarios y patrones semanales mediante modelos de variación estadística avanzada.", 
                   style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")

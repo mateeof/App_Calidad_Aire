@@ -5,7 +5,18 @@ library(transformr)
 library(ggplot2)
 
 plot_time_variation <- function(data, pollutant){
-  res<- timeVariation(data,pollutant = pollutant)
+  
+  fecha_ini <- format(min(as.Date(data$date), na.rm = TRUE), "%d/%m/%Y")
+  fecha_fin <- format(max(as.Date(data$date), na.rm = TRUE), "%d/%m/%Y")
+  periodo   <- paste0("Período: ", fecha_ini, " - ", fecha_fin)
+  
+  res <- timeVariation(
+    data,
+    pollutant = pollutant,
+    main = periodo,
+    ylab = pollutant,
+    xlab = c("Dia y hora de la semana", "Hora", "Mes", "Semana")
+  )
   return(res)
 }
 
