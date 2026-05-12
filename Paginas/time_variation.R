@@ -77,6 +77,22 @@ ui_time_variation <- nav_panel_hidden(
           type = 7
         ),
         hr(),
+        h6(style = "color: #0369A1; font-weight: 700; padding: 10px 0;",
+           bs_icon("graph-up"), " PM10 y PM2.5"),
+        withSpinner(
+          plotOutput("time_variation_pm", height = "580px"),
+          color = "#BED7F9", type = 7
+        ),
+        
+        hr(),
+        h6(style = "color: #0369A1; font-weight: 700; padding: 10px 0;",
+           bs_icon("graph-up"), " O3 y NO2"),
+        withSpinner(
+          plotOutput("time_variation_o3no2", height = "580px"),
+          color = "#BED7F9", type = 7
+        ),
+        
+        hr(),
         
         # Análisis de la IA con Acordeón
         accordion(

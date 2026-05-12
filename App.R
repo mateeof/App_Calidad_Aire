@@ -399,6 +399,30 @@ output$time_variation_plot<-renderPlot({
   
 })
 
+output$time_variation_pm <- renderPlot({
+  input$generar_time
+  df <- datos_time_historicos()
+  if(is.null(df)) return(NULL)
+  
+  message("Columnas disponibles: ", paste(names(df), collapse = ", "))
+  message("Contaminantes PM encontrados: ", paste(intersect(c("pm10", "pm2.5"), names(df)), collapse = ", "))
+  
+  if(!any(c("pm10", "pm2.5") %in% names(df))) return(NULL)
+  plot_time_variation_pm(data=df)
+  res <- plot_time_variation_pm(data = df)
+  print(res)
+})
+
+output$time_variation_o3no2 <- renderPlot({
+  input$generar_time
+  df <- datos_time_historicos()
+  if(is.null(df)) return(NULL)
+  if(!any(c("ozono", "no2") %in% names(df))) return(NULL)
+  plot_time_variation_o3no2(data=df)
+  res <- plot_time_variation_o3no2(data = df)
+  print(res)
+})
+
 observeEvent(input$btn_analizar_tv, {
   req(v_res_tv_objeto()) 
   texto_analisis_ia(NULL)

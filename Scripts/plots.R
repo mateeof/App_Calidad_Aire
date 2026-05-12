@@ -20,6 +20,36 @@ plot_time_variation <- function(data, pollutant){
   invisible(res)
 }
 
+plot_time_variation_pm <- function(data){
+  fecha_ini <- format(min(as.Date(data$date), na.rm = TRUE), "%d/%m/%Y")
+  fecha_fin <- format(max(as.Date(data$date), na.rm = TRUE), "%d/%m/%Y")
+  periodo   <- paste0("PM10 y PM2.5 | Período: ", fecha_ini, " - ", fecha_fin)
+  contaminantes <- intersect(c("pm10", "pm2.5"), names(data))
+  timeVariation(
+    data,
+    pollutant = contaminantes,
+    normalise = TRUE,
+    main      = periodo,
+    xlab      = c("Dia y hora de la semana", "Hora", "Mes", "Semana"),
+    ylab= "Nivel normalizado"
+  )
+}
+
+plot_time_variation_o3no2 <- function(data){
+  fecha_ini <- format(min(as.Date(data$date), na.rm = TRUE), "%d/%m/%Y")
+  fecha_fin <- format(max(as.Date(data$date), na.rm = TRUE), "%d/%m/%Y")
+  periodo   <- paste0("O3 y NO2   |   Período: ", fecha_ini, " - ", fecha_fin)
+  contaminantes <- intersect(c("ozono", "no2"), names(data))
+  timeVariation(
+    data,
+    pollutant = contaminantes,
+    normalise = TRUE,
+    main = periodo,
+    xlab = c("Dia y hora de la semana", "Hora", "Mes", "Semana"),
+    ylab= "Nivel normalizado"
+  )
+}
+
 plot_pollution_rose <- function(data, pollutant){
   res<-pollutionRose(
     data, 
