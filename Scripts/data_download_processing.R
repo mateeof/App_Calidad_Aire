@@ -148,6 +148,70 @@ get_data_for_gif <- function(fecha, contaminante_sel, update = NULL) {
   # Unimos todo en un solo dataframe
   return(bind_rows(all_data))}
 
+# Media móvil ponderada NowCast (12h) para PM2.5 y PM10
+nowcast <- function(valores){
+  # Requiere vector de 12 valores horarios, el más reciente primero
+  if(length(valores) < 3) return(NA)
+  valores <- valores[1:min(12, length(valores))]
+  
+  # Rango
+  rango <- max(valores, na.rm = TRUE) - min(valores, na.rm = TRUE)
+  max_val <- max(valores, na.rm = TRUE)
+  if(is.na(max_val) || max_val == 0) return(NA)
+  
+  # Factor de ponderación
+  w <- 1 - (rango / max_val)
+  w <- max(w, 0.5)  # mínimo 0.5
+  
+  # Pesos por hora
+  pesos <- w^(0:(length(valores)-1))
+  
+  # Solo usar horas con datos
+  validos <- !is.na(valores)
+  if(sum(validos) < 2) return(NA)
+  
+  resultado <- sum(valores[validos] * pesos[validos]) / sum(pesos[validos])
+  return(round(resultado, 2))
+}
+
+# Media móvil simple (para O3 8h y CO 8h)
+media_movil <- function(valores, ventana = 8){
+  if(sum(!is.na(valores)) < ventana * 0.75) return(NA)
+  return(mean(valores[1:ventana], na.rm = TRUE))
+}
+
+calcular_iboca_horario <- function(df_estacion, hora_objetivo){
+  # df_estacion: datos de UNA estación ordenados por fecha descendente
+  # hora_objetivo: POSIXct de la hora que queremos calcular
+  
+  df_estacion <- df_estacion[order(df_estacion$date, decreasing = TRUE), ]
+  
+  # Filtrar hasta la hora objetivo
+  df_antes <- df_estacion[df_estacion$date <= hora_objetivo, ]
+  
+  if(nrow(df_antes) == 0) return(NA)
+  
+  # PM2.5 y PM10: NowCast 12h
+  pm25_vals <- head(df_antes$`pm2.5`, 12)
+  pm10_vals <- head(df_antes$pm10,    12)
+  
+  pm25_nc <- nowcast(pm25_vals)
+  pm10_nc <- nowcast(pm10_vals)
+  
+  # O3 y CO: media 8h
+  o3_vals <- head(df_antes$ozono, 8)
+  co_vals <- head(df_antes$co,    8)
+  
+  o3_8h <- media_movil(o3_vals, 8)
+  co_8h <- media_movil(co_vals, 8)
+  
+  # NO2 y SO2: valor horario (1h)
+  no2_1h <- df_antes$no2[1]
+  so2_1h <- df_antes$so2[1]
+  
+  return(calcular_iboca(pm25_nc, pm10_nc, o3_8h, no2_1h, so2_1h, co_8h))
+}
+
 # Función para calcular el IBOCA
 calcular_iboca <- function(pm2.5 = NA, pm10 = NA, ozono = NA, 
                            no2 = NA, so2 = NA, co = NA) {
