@@ -1095,30 +1095,71 @@ output$control_gif_ui <- renderUI({
 
 observeEvent(input$generar_gif, {
   
-  withProgress(message = "Construyendo mapa histórico...", value = 0, {
+  withProgress(message = "Descargando últimas 24 horas...", value = 0, {
     
-    incProgress(0.1, detail = "Leyendo datos historicos...")
+    incProgress(0.1, detail = "Obteniendo datos recientes...")
     
-    #validar que existan datos precalculados
-    if(is.null(datos_historicos_gif) || nrow(datos_historicos_gif) == 0 ){
-      showNotification("No se encontraron datos históricos. Ejecuta Scripts/descargar_historico.R primero.",
-                       type = "error", duration = 10)
-      return()}
-    datos_mensuales <- datos_historicos_gif %>%
-      mutate(
-        lat = case_when(site == "Usaquen" ~ 4.710350, TRUE ~ lat),
-        lon = case_when(site == "Usaquen" ~ -74.04, TRUE ~ lon)
-      ) %>%
-      filter(!is.na(lat), !is.na(lon), !is.na(valor)) #%>%
-      #dplyr::filter(periodo >= "2026-01")
-    if (nrow(datos_mensuales) == 0) {
-      showNotification("No hay datos válidos para generar el mapa animado.",
-                       type = "warning", duration = 10)
-      return() }
+    # Rango: últimas 24 horas
+    fecha_hoy  <- Sys.Date()
+    fecha_ayer <- Sys.Date() - 1
     
-    incProgress(0.2, detail = "Creando mapa...")
-  
-    # ── Grilla de interpolación sobre Bogotá ──────────────────────────────
+    # Descargar datos de todas las estaciones
+    estaciones_lista <- rmcab_aqs$aqs[!rmcab_aqs$aqs %in% c("Bosa", "Usme")]
+    
+    datos_lista <- list()
+    for(est in estaciones_lista){
+      tryCatch({
+        df <- get_data_clean(
+          aqs        = est,
+          start_date = format(fecha_ayer, "%d-%m-%Y"),
+          end_date   = format(fecha_hoy,  "%d-%m-%Y")
+        )
+        if(is.null(df) || nrow(df) == 0) next
+        datos_lista[[est]] <- df
+      }, error = function(e) message("Error descargando: ", est))
+    }
+    
+    if(length(datos_lista) == 0){
+      showNotification("No se pudieron obtener datos recientes.", type = "error")
+      return()
+    }
+    
+    # Combinar todas las estaciones
+    datos_24h <- bind_rows(datos_lista)
+    
+    # Asegurar que date sea POSIXct y extraer hora
+    datos_24h$date <- as.POSIXct(datos_24h$date)
+    datos_24h$date_hora <- as.POSIXct(format(datos_24h$date, "%Y-%m-%d %H:00:00"))
+    datos_24h$hora <- format(datos_24h$date, "%Y-%m-%d %H:00")
+    
+    # Calcular IBOCA por estación y hora
+    horas_unicas <- sort(unique(datos_24h$date_hora))
+    
+    datos_horarios <- purrr::map_dfr(horas_unicas, function(h){
+      purrr::map_dfr(unique(datos_24h$site), function(est){
+        df_est <- datos_24h %>% filter(site == est)
+        if(nrow(df_est) == 0) return(NULL)
+        
+        iboca <- calcular_iboca_horario(df_est, h)
+        
+        data.frame(
+          hora  = format(h, "%Y-%m-%d %H:00"),
+          site  = est,
+          lat   = df_est$lat[1],
+          lon   = df_est$lon[1],
+          valor = iboca
+        )
+      })
+    }) %>% filter(!is.na(valor), !is.na(lat), !is.na(lon))
+    
+    if(nrow(datos_horarios) == 0){
+      showNotification("No hay datos válidos para las últimas 24 horas.", type = "warning")
+      return()
+    }
+    
+    incProgress(0.4, detail = "Generando frames...")
+    
+    # Grilla de interpolación
     grilla <- terra::rast(
       xmin = -74.40, xmax = -73.85,
       ymin =  4.50,  ymax =  4.78,
@@ -1128,86 +1169,56 @@ observeEvent(input$generar_gif, {
     
     grilla_sf <- sf::st_as_sf(
       as.data.frame(terra::xyFromCell(grilla, 1:terra::ncell(grilla))),
-      coords = c("x", "y"),
-      crs = 4326
+      coords = c("x", "y"), crs = 4326
     )
-    #convertir poligono a SpatVector para el recorte
     
-    bogota_vect <- if (!is.null(bogota_poligono)) {
-      terra::vect(bogota_poligono)
-    } else NULL
+    bogota_vect <- if(!is.null(bogota_poligono)) terra::vect(bogota_poligono) else NULL
     
-    periodos <- sort(unique(datos_mensuales$periodo))
-    
-    incProgress(0.3, detail = "Interpolando periodos...")
-    
-    # ── Interpolar cada periodo con IDW ───────────────────────────────────
+    horas <- sort(unique(datos_horarios$hora))
     
     icono_img  <- png::readPNG("www/broadcasting.png")
     icono_grob <- grid::rasterGrob(icono_img)
-    frames <- lapply(seq_along(periodos), function(i) {
+    
+    frames <- lapply(horas, function(h){
+      df_h <- datos_horarios %>% filter(hora == h)
+      if(nrow(df_h) < 2) return(NULL)
       
-      p <- periodos[i]
-      df_p <- datos_mensuales %>% filter(periodo == p)
+      puntos_sf <- sf::st_as_sf(df_h, coords = c("lon", "lat"), crs = 4326)
       
-      # Necesitamos al menos 2 puntos para interpolar
-      if (nrow(df_p) < 2) return(NULL)
-      
-      puntos_sf <- sf::st_as_sf(df_p, coords = c("lon", "lat"), crs = 4326)
-      
-      # IDW
       idw_result <- tryCatch({
+        suppressMessages(
         gstat::idw(formula = valor ~ 1,
                    locations = puntos_sf,
                    newdata   = grilla_sf,
-                   idp       = 2)
+                   idp       = 2) )
       }, error = function(e) NULL)
       
-      if (is.null(idw_result)) return(NULL)
+      if(is.null(idw_result)) return(NULL)
       
-      # Raster con resultado
       r <- grilla
       terra::values(r) <- idw_result$var1.pred
-      ## recortar perimetro de bogota
-      if (!is.null(bogota_vect)) {
-        r <- terra::mask(r, bogota_vect)
-      }
-      # convertir a df 
-      df_plot <- as.data.frame(r, xy = TRUE, na.rm = TRUE)
-      names(df_plot) <- c("x", "y", "valor")
-      
-      if (nrow(df_plot) == 0) return(NULL)
+      if(!is.null(bogota_vect)) r <- terra::mask(r, bogota_vect)
       
       df_plot <- as.data.frame(r, xy = TRUE)
       names(df_plot) <- c("x", "y", "valor")
       
-      # Frame del mapa
       ggplot() +
-        
-        # Fondo del mapa
-        { if (!is.null(fondo_bogota))
+        { if(!is.null(fondo_bogota))
           tidyterra::geom_spatraster_rgb(data = fondo_bogota)
           else
-            annotate("rect", xmin = -74.40, xmax = -73.85,
-                     ymin = 4.50, ymax = 4.78, fill = "#EEE8DA")
+            annotate("rect", xmin=-74.40, xmax=-73.85,
+                     ymin=4.50, ymax=4.78, fill="#EEE8DA")
         } +
-        
-        # Mapa de calor interpolado
         geom_raster(data = df_plot,
                     aes(x = x, y = y, fill = valor),
                     alpha = 0.70) +
-      
-        # icono de estaciones encima
-        purrr::map(seq_len(nrow(df_p)), function(j) {
+        purrr::map(seq_len(nrow(df_h)), function(j){
           annotation_custom(
             grob = icono_grob,
-            xmin = df_p$lon[j] - 0.008,
-            xmax = df_p$lon[j] + 0.008,
-            ymin = df_p$lat[j] - 0.008,
-            ymax = df_p$lat[j] + 0.008
+            xmin = df_h$lon[j] - 0.008, xmax = df_h$lon[j] + 0.008,
+            ymin = df_h$lat[j] - 0.008, ymax = df_h$lat[j] + 0.008
           )
         }) +
-        
         scale_fill_gradientn(
           colours = c("#68E045","#FFFE54","#ECBA41","#E63527","#8F3F97","#66329A"),
           values  = scales::rescale(c(0, 50, 100, 150, 200, 300, 500)),
@@ -1215,16 +1226,10 @@ observeEvent(input$generar_gif, {
           oob     = scales::squish,
           name    = "IBOCA"
         ) +
-        
-        coord_sf(
-          xlim = c(-74.28, -73.98),
-          ylim = c(4.48,   4.82),
-          expand = FALSE
-        ) + 
-        
+        coord_sf(xlim = c(-74.28, -73.98), ylim = c(4.48, 4.82), expand = FALSE) +
         labs(
-          title    = "Evolución de la Calidad del Aire en Bogotá",
-          subtitle = paste("Periodo:", p)
+          title    = "Calidad del Aire en Bogotá - Últimas 24 Horas",
+          subtitle = paste("Hora:", h)
         ) +
         theme_void() +
         theme(
@@ -1236,27 +1241,23 @@ observeEvent(input$generar_gif, {
         )
     })
     
-    # Eliminar frames nulos
     frames <- Filter(Negate(is.null), frames)
     
-    if (length(frames) == 0) {
-      showNotification("No se pudieron generar frames para el GIF.", type = "error")
+    if(length(frames) == 0){
+      showNotification("No se pudieron generar frames.", type = "error")
       return()
     }
     
     incProgress(0.8, detail = "Compilando GIF...")
     
-    # ── Compilar GIF con magick ───────────────────────────────────────────
     gif_frames <- magick::image_graph(width = 800, height = 700, res = 150)
     lapply(frames, print)
     dev.off()
     
     gif_animado <- magick::image_animate(gif_frames, fps = 2)
-    
     path <- tempfile(fileext = ".gif")
     magick::image_write(gif_animado, path)
     datos_gif_path(path)
-    
   })
 })
 

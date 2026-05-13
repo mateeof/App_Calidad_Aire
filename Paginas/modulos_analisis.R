@@ -224,9 +224,9 @@ ui_modulos_analisis<-div(
           
           card_body(style = "padding: 20px; background-color: white;",
                     div(style = "min-height: 90px; text-align: center;",
-                        p("¿Cómo ha cambiado la contaminación con el paso del tiempo?", 
+                        p("¿Que zonas de bogota fueron las mas contaminadas en las ultimas horas?", 
                           style = "font-size: 1.1rem; color: #2c3e50; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
-                        p("Genera un mapa animado donde a partir del IBOCA se logra identificar la evolución mensual de los niveles de contaminación en la ciudad.", 
+                        p("Genera un mapa animado donde a partir del IBOCA se logra identificar los niveles de contaminación en la ciudad.", 
                           style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")),
                     
                     div(class = "text-center my-3",

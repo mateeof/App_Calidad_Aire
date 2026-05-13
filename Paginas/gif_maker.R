@@ -7,7 +7,6 @@ ui_gif_maker <- nav_panel_hidden(
       title = "Configurador de GIF",
       bg = "#FFFDE7", 
       
-      hr(),
       # Botón dinámico que cambiará a mensaje de carga
       div(class="text-center mb-3",
           uiOutput("control_gif_ui")),

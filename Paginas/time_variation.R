@@ -34,12 +34,6 @@ ui_time_variation <- nav_panel_hidden(
       hr(style = "border-top: 1px solid #C8E6C9;"),
       
       # Botón Volver (Estilo minimalista)
-      actionButton(
-        "volver_inicio", 
-        "Volver al Menú", 
-        icon = bs_icon("arrow-left-circle"),
-        style = "background-color: transparent; color: #455A64; border: 1px solid #CFD8DC; width: 100%; font-weight: 500; border-radius: 6px;"
-      ),
       div(
         style = "background-color: white; border-radius: 12px; padding: 15px; border: 1px solid #E0F2FE; box-shadow: 0 2px 4px rgba(0,0,0,0.05);",
         h6(style = "color: #0369A1; font-weight: 700; display: flex; align-items: center; gap: 8px;",
@@ -59,6 +53,12 @@ ui_time_variation <- nav_panel_hidden(
           "Los valores que ves no son de un solo día, sino el resultado de promediar muchos días juntos para encontrar el comportamiento típico del contaminante. La ",
           tags$b("línea del centro"), " muestra ese promedio, y las ",
           tags$b("bandas sombreadas"), " que la rodean nos dicen qué tan seguros estamos de ese valor: si las bandas son delgadas, significa que casi siempre pasa lo mismo; si son anchas, significa que hay días muy diferentes entre sí.")
+      ),
+      actionButton(
+        "volver_inicio", 
+        "Volver al Menú", 
+        icon = bs_icon("arrow-left-circle"),
+        style = "background-color: transparent; color: #455A64; border: 1px solid #CFD8DC; width: 100%; font-weight: 500; border-radius: 6px;"
       )
     ),
     
