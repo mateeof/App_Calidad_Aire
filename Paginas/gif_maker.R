@@ -4,7 +4,7 @@ ui_gif_maker <- nav_panel_hidden(
   "pagina_gif",style="margin-top:50px;",
   layout_sidebar(
     sidebar = sidebar(
-      title = "Configurador de GIF",
+      title = "Mapa GIF contaminacion de Bogota",
       bg = "#FFFDE7", 
       
       # Botón dinámico que cambiará a mensaje de carga
@@ -12,6 +12,26 @@ ui_gif_maker <- nav_panel_hidden(
           uiOutput("control_gif_ui")),
       
       hr(),
+      div(
+        style = "background-color: white; border-radius: 12px; padding: 15px; border: 1px solid #E0F2FE; box-shadow: 0 2px 4px rgba(0,0,0,0.05);",
+        h6(style = "color: #0369A1; font-weight: 700; display: flex; align-items: center; gap: 8px;",
+           bs_icon("patch-question"), "¿Cómo leer este mapa?"),
+        
+        p(style = "font-size: 0.85rem; color: #475569; margin-bottom: 8px;",
+          "Este mapa animado muestra la evolución hora a hora de la calidad del aire en Bogotá durante las últimas 24 horas:"),
+        
+        tags$ul(
+          style = "font-size: 0.8rem; color: #64748b; padding-left: 1.2rem; margin-bottom: 0;",
+          tags$li(tags$b("Color del mapa:"), " Representa el índice IBOCA en cada zona de la ciudad. Colores ",
+                  span("verdes", style = "color:#68E045; font-weight:bold;"), " indican buena calidad del aire, ",
+                  span("amarillos y naranjas", style = "color:#ECBA41; font-weight:bold;"), " calidad moderada, y ",
+                  span("rojos y morados", style = "color:#8F3F97; font-weight:bold;"), " niveles peligrosos."),
+          tags$li(tags$b("Iconos:"), " Cada ícono representa una estación de monitoreo de la RMCAB que reportó datos en esa hora."),
+          tags$li(tags$b("Hora:"), " El subtítulo indica la hora exacta que se está visualizando. El mapa se actualiza cada vez que haces clic en 'Generar GIF'."),
+          tags$li(tags$b("Zonas sin color:"), " Áreas donde no hay suficientes estaciones cercanas para estimar la calidad del aire.")
+        )
+      ),
+      hr(style="border-top:1px solid #BAE6FD;"),
       # Botón para regresar al menú principal
       actionButton("volver_inicio4", "Volver al Menú", 
                    icon = bs_icon("arrow-left"), 

@@ -12,7 +12,7 @@ ui_calendar_plot <- nav_panel_hidden(
       selectInput("anio_cal", "Año:",
                   choices = c("2026", "2025", "2024", "2023", "2022", "2021",
                               "2020", "2019", "2018", "2017", "2016"),
-                  selected = "2024"),
+                  selected = "2026"),
       
       selectInput("station_cal", "Estación de Monitoreo:", choices = NULL),
       selectInput("pollutant_cal", "Contaminante:", choices = NULL),
@@ -23,15 +23,6 @@ ui_calendar_plot <- nav_panel_hidden(
           uiOutput("control_cal_ui")),
       
       hr(style = "border-top: 1px solid #C8E6C9;"),
-      
-      actionButton(
-        "volver_inicio7",
-        "Volver al Menú",
-        icon = bs_icon("arrow-left-circle"),
-        style = "background-color: transparent; color: #455A64; border: 1px solid #CFD8DC; width: 100%; font-weight: 500; border-radius: 6px;"
-      ),
-      
-      # Nota explicativa
       div(
         style = "background-color: white; border-radius: 12px; padding: 15px; border: 1px solid #E0F2FE; box-shadow: 0 2px 4px rgba(0,0,0,0.05);",
         h6(style = "color: #0369A1; font-weight: 700; display: flex; align-items: center; gap: 8px;",
@@ -45,7 +36,15 @@ ui_calendar_plot <- nav_panel_hidden(
           tags$li(tags$b("Color claro:"), " Colores ", span("amarillos y crema", style = "color:#ca8a04; font-weight:bold;"), " indican concentraciones bajas."),
           tags$li(tags$b("Cuadros sin color:"), " Días sin datos disponibles en la estación.")
         )
+      ),
+      hr(style = "border-top: 1px solid #C8E6C9;"),
+      actionButton(
+        "volver_inicio7",
+        "Volver al Menú",
+        icon = bs_icon("arrow-left-circle"),
+        style = "background-color: transparent; color: #455A64; border: 1px solid #CFD8DC; width: 100%; font-weight: 500; border-radius: 6px;"
       )
+      
     ),
     
     card(

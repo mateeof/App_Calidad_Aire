@@ -169,52 +169,52 @@ ui_modulos_analisis<-div(
         ),
         
         # Tarjeta 3
-        card(
+        #card(
           # Mantenemos el estándar de 15px de radio y sombra suave para consistencia
-          style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
+         # style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
           
-          card_header(
-            div(class = "d-flex align-items-center",
-                bs_icon("grid-3x3-gap", size = "1.5rem", class = "me-2"),
-                span("Relación Multivariada", style = "font-weight: 700; font-size: 1.25rem;")
-            ),
+          #card_header(
+           # div(class = "d-flex align-items-center",
+            #    bs_icon("grid-3x3-gap", size = "1.5rem", class = "me-2"),
+             #   span("Relación Multivariada", style = "font-weight: 700; font-size: 1.25rem;")
+            #),
             # Usamos un tono pizarra oscuro para denotar seriedad analítica
-            style = "background-color: #34495e; color: white; border: none; padding: 15px;"
-          ),
+            #style = "background-color: #34495e; color: white; border: none; padding: 15px;"
+          #),
           
-          card_body(
-            style = "padding: 20px; background-color: white;",
+          #card_body(
+           # style = "padding: 20px; background-color: white;",
             
             # Texto superior
-            div(style = "min-height: 90px; text-align: center;",
-                p("¿Cómo influye el clima en la concentración de partículas?", 
-                  style = "font-size: 1.1rem; color: #2c3e50; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
-                p("Analiza la dependencia lineal entre variables meteorológicas y contaminantes críticos mediante matrices de Pearson.", 
-                  style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")
-            ),
+          #  div(style = "min-height: 90px; text-align: center;",
+            #    p("¿Cómo influye el clima en la concentración de partículas?", 
+           #       style = "font-size: 1.1rem; color: #2c3e50; font-weight: 700; margin-bottom: 8px; line-height: 1.2;"),
+             #   p("Analiza la dependencia lineal entre variables meteorológicas y contaminantes críticos mediante matrices de Pearson.", 
+              #    style = "font-size: 0.95rem; color: #7f8c8d; font-weight: 400;")
+            #),
             
             # Contenedor de Imagen con marco gris técnico
-            div(class = "text-center my-3",
-                style = "border-radius: 10px; padding: 10px; border: 1px solid #e2e8f0;",
-                tags$img(
-                  src = "correlation.png", 
-                  style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));"
-                )
-            )
-          ),
+            #div(class = "text-center my-3",
+               # style = "border-radius: 10px; padding: 10px; border: 1px solid #e2e8f0;",
+                #tags$img(
+                 # src = "correlation.png", 
+                  #style = "width: 100%; max-height: 180px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));"
+              #  )
+          #  )
+          #),
           
-          card_footer(
-            style = "background: white; border-top: 1px solid #f1f1f1; padding: 15px;",
+#          card_footer(
+ #           style = "background: white; border-top: 1px solid #f1f1f1; padding: 15px;",
             # Botón sólido para mantener la jerarquía de botones principales
-            actionButton(
-              "ir_cor", 
-              "Visualizar Matriz", 
-              icon = bs_icon("table"),
-              style = "background-color: #34495e; color: white; border: none; width: 100%; font-weight: 700; padding: 12px; border-radius: 8px;",
-              class = "btn-hover-effect"
-            )
-          )
-        ),
+  #          actionButton(
+   #           "ir_cor", 
+    #          "Visualizar Matriz", 
+     #         icon = bs_icon("table"),
+      #        style = "background-color: #34495e; color: white; border: none; width: 100%; font-weight: 700; padding: 12px; border-radius: 8px;",
+       #       class = "btn-hover-effect"
+        #    )
+         # )
+      #  ),
         # Tarjeta 4: Mapa Animado (GIF)
         card(
           style = "border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s ease;",
