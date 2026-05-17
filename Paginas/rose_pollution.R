@@ -33,15 +33,6 @@ ui_rose_pollution <- nav_panel_hidden(
       
       hr(style = "border-top: 1px solid #BAE6FD;"),
       
-      # Botón Volver con estilo "Ghost"
-      actionButton(
-        "volver_inicio2", 
-        "Volver al Menú", 
-        icon = bs_icon("arrow-left-short"),
-        style = "background-color: transparent; color: #0369A1; border: 1px solid #BAE6FD; width: 100%; font-weight: 600; border-radius: 6px;"
-      ),
-      
-      hr(style="border-top:1px solid #BAE6FD;"),
       div(
         style = "background-color: white; border-radius: 12px; padding: 15px; border: 1px solid #E0F2FE; box-shadow: 0 2px 4px rgba(0,0,0,0.05);",
         h6(style = "color: #0369A1; font-weight: 700; display: flex; align-items: center; gap: 8px;",
@@ -56,7 +47,15 @@ ui_rose_pollution <- nav_panel_hidden(
           tags$li(tags$b("Frecuencia:"), " Entre más largo el pétalo, más tiempo sopló el viento desde ahí."),
           tags$li(tags$b("Color:"), " Colores ", span("naranjas y rojos", style="color:#e11d48; font-weight:bold;"), " indican niveles altos de contaminación.")
         )
-      )
+      ),
+      hr(style="border-top:1px solid #BAE6FD;"),
+      # Botón Volver con estilo "Ghost"
+      actionButton(
+        "volver_inicio2", 
+        "Volver al Menú", 
+        icon = bs_icon("arrow-left-short"),
+        style = "background-color: transparent; color: #0369A1; border: 1px solid #BAE6FD; width: 100%; font-weight: 600; border-radius: 6px;"
+      ),
     ),
     
     # Área Principal

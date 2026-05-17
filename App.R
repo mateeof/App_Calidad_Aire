@@ -1128,10 +1128,16 @@ observeEvent(input$generar_gif, {
     datos_24h <- bind_rows(datos_lista)
     
     # Asegurar que date sea POSIXct y extraer hora
-    datos_24h$date <- as.POSIXct(datos_24h$date)
-    datos_24h$date_hora <- as.POSIXct(format(datos_24h$date, "%Y-%m-%d %H:00:00"))
+    datos_24h$date <- as.POSIXct(datos_24h$date, tz = "UTC")
+    datos_24h$date <- lubridate::with_tz(datos_24h$date, tzone = "America/Bogota")
+    datos_24h$date_hora <- as.POSIXct(format(datos_24h$date, "%Y-%m-%d %H:00:00"), 
+                                      tz = "America/Bogota")
     datos_24h$hora <- format(datos_24h$date, "%Y-%m-%d %H:00")
     
+    # Filtro horas futuras - estas dos líneas deben estar JUNTAS
+    ahora_bogota <- lubridate::with_tz(Sys.time(), "America/Bogota")
+    datos_24h <- datos_24h %>%
+      filter(date <= ahora_bogota)
     # Calcular IBOCA por estación y hora
     horas_unicas <- sort(unique(datos_24h$date_hora))
     
@@ -1363,6 +1369,59 @@ output$plot_scatter <- renderPlot({
     validate(paste("Error de graficación:", e$message))
   })
   
+}) 
+
+output$plot_corplot_scatter <- renderPlot({
+
+  df <- datos_scatter()
+  if(is.null(df)) return(NULL)
+  
+  # Verificar dataframe válido
+  if(!is.data.frame(df) || nrow(df) < 5){
+    plot.new()
+    text(0.5, 0.5,"No hay suficientes datos para calcular correlación.",cex = 1.2)
+    return()
+  }
+  # Variables numéricas
+  variables_permitidas <- c("pm10","pm2.5","no","no2","nox","so2","co","ozono","temperatura","hr") #Contaminantes + humedad + temperatura
+  
+  df_num <- df[, intersect(variables_permitidas, names(df)), drop = FALSE]
+  
+  if(ncol(df_num) < 2){
+    plot.new()
+    text(0.5, 0.5,"No hay suficientes variables numéricas.",cex = 1.2)
+    return()
+  }
+  
+  # Quitar columnas con pocos datos
+  df_num <- df_num[, colSums(!is.na(df_num)) > 5, drop = FALSE]
+  
+  # Quitar columnas constantes
+  df_num <- df_num[, sapply(df_num, function(x) sd(x, na.rm = TRUE) > 0), drop = FALSE]
+  
+  if(ncol(df_num) < 2){
+    plot.new()
+    text(0.5, 0.5,"Las variables no presentan variabilidad suficiente.",cex = 1.2)
+    return()
+  }
+  
+  # Calcular matriz
+  
+  matriz_cor <- cor(df_num, use = "pairwise.complete.obs")
+  
+  # Verificar matriz válida
+  if(any(is.na(matriz_cor)) || ncol(matriz_cor) < 2){
+    plot.new()
+    text(0.5, 0.5,"No fue posible construir una matriz de correlación válida.",cex = 1.2)
+    return()
+  }
+  
+  # Graficar
+  par(bg = "white", mar = c(1,1,3,1))
+  
+  corrplot::corrplot(matriz_cor,method = "ellipse",type = "full",order = "hclust",addCoef.col = "black",number.cex = 0.7,tl.col = "black",tl.cex = 0.9,tl.srt = 45,col = colorRampPalette(c("#83D0A4", "#FAFFB5","#A32B50" ))(200))
+  
+  title(main = paste("Matriz de Correlación - Estación", input$station_corplot),line = 1)
 })
 
 #Analisis IA
